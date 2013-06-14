@@ -1,0 +1,8 @@
+*.py
+*.html
+*.pdf
+*.xml
+*.css
+*.pyc
+beer/
+couchbase
