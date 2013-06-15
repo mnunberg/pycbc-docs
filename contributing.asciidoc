@@ -1,5 +1,5 @@
 Contributing
-============
+------------
 
 This section contains means by which you can contribute to this SDK.
 
@@ -13,7 +13,7 @@ If you wish to contribute to the C extension itself, it may be worthwhile
 using a debug build of Python.
 
 Compiling Python From Source
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You may skip this section if you do not intend to contribute to the C part
 of the SDK.
@@ -114,7 +114,7 @@ shell> make install
 ------------------------------------
 
 Running Tests
-~~~~~~~~~~~~~
+^^^^^^^^^^^^^
 
 If you've made changes to the library, you need to run the test suite to
 ensure that nothing broke with your changes.
@@ -141,7 +141,7 @@ from within the root of the SDK source.
 
 
 Building Docs
--------------
+^^^^^^^^^^^^^
 
 You will need `sphinx` and `numpydoc` installed. Simply do
 
@@ -154,7 +154,7 @@ browsing by opening `docs/build/html/index.html` in your browser.
 
 
 Source Style Guidelines
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 For the Python code, a loose adherence to _PEP-8_ should be used.
 For the C extension code, a fairly more strict adherence to _PEP-7_ should

@@ -1,11 +1,11 @@
 Advanced Usage
-==============
+--------------
 
 This covers advanced topics and builds on the 'Using the APIs' section.
 
 
 Batched (Bulk) Operations
--------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Most API functions have both single and multi-key (batched) variants.
 The batched variant will be of the same name as the single-key variant,
@@ -18,7 +18,7 @@ responses, saving on network latency.
 Batched operations tend to accept an iterable of keys (or a dict of keys,
 depending on the method) and return a dictionary of the following format
 
-[source,Python]
+[source,python]
 ---------------------------------
 c.foo_multi(["key1", "key2", "key3"])
 
@@ -30,14 +30,14 @@ c.foo_multi(["key1", "key2", "key3"])
 --------------------------------
 
 Exceptions in Batched Operations
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Sometimes a single key in a batched operation may fail, resulting in an
 exception. It is still possible to retrieve the full result set of the
 failed batched operation by using the `all_results` property of the
 thrown exception (assuming it is of type `CouchbaseError`)
 
-[source,Python]
+[source,python]
 ---------------
 
 c.set("foo", "foo value")
@@ -60,7 +60,7 @@ except CouchbaseError as exc:
 
 
 Using With and Without Threads
-------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The `Connection` object by default is thread safe. In order to do so, it uses
 internal locks and explicitly locks and unlocks the Python _GIL_ to ensure
@@ -72,7 +72,7 @@ that things will not crash if an application is using threads.
 If you are not using threads in your application (at all), you may pass the
 `unlock_gil=False` option to the `connect` method like so:
 
-[source,Python]
+[source,python]
 ---------------
 c = Couchbase.connect(unlock_gil=False, bucket='default')
 ---------------
@@ -100,7 +100,7 @@ happen and your program will eventually core dump.
 If you're sure you're not going to use it from more than one thread, you can
 use the `lockmode = LOCKMODE_NONE` in the constructor
 +
-[source,Python]
+[source,python]
 --------------
 from couchbase import Couchbase, LOCKMODE_NONE
 c = Couchbase.connect(bucket='default', lockmode=LOCKMODE_NONE)
@@ -112,7 +112,7 @@ This is helpful for debugging an application where multiple threads *should*
 not be accessing the `Connection` object (but for some reason, they are). You
 can use the `lockmode = LOCKMODE_EXC` for this
 +
-[source,Python]
+[source,python]
 ---------------
 from couchbase import Couchbase, LOCKMODE_EXC
 c = Couchbase.connect(bucket='default', lockmode=LOCKMODE_EXC)
@@ -123,7 +123,7 @@ concurrent access is detected
 
 
 Custom Encodings/Conversions
-----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 While the Python SDK offers numerous options for converting your data to be
 suitable for storing on the server, it may sometimes not be enough. For this,
@@ -133,7 +133,7 @@ The `Transcoder` interface allows you to define an object which is called
 with each value together with the `format` arguments passed to it.
 
 Formats and Flags
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 The value passed for the `format` parameter is actually a flag which is stored
 on the server. Each key has a small amount of metadata which is stored with it
@@ -145,12 +145,12 @@ decode it as Pickle, and so on.
 
 
 Custom `Transcoder` Objects
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can write a custom transcoder which will allow _Zlib_ compression;
 here's a snippet
 
-[source,Python]
+[source,python]
 ---------------
 import zlib
 
@@ -207,7 +207,7 @@ the default `decode_value` to handle any further encapulation formats.
 
 This may all be used like so from Python
 
-[source,Python]
+[source,python]
 ---------------------------------------
 
 # assuming the ZlibTrancoder class is defined above
@@ -218,7 +218,7 @@ c.get("foo")
 ---------------------------------------
 
 Bypassing Conversion
-~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^
 
 If you are having difficulties with reading some value from the server
 (possibly because it was stored using a different client with different
@@ -228,7 +228,7 @@ boolean, and when enabled does not deconvert the value (i.e. it does not
 call `decode_value` but simply interprets the value as a sequence of bytes
 and returns them as part of the `Result` object's `value` property
 
-[source,Python]
+[source,python]
 ---------------
 c.set("a_dict", {"foo":"bar"})
 c.data_passthrough = True
@@ -236,14 +236,14 @@ c.get("a_dict").value == b'{"foo":"bar"}'
 ---------------
 
 Logging and Debugging
----------------------
+~~~~~~~~~~~~~~~~~~~~~
 
 
 This section will cover how to uncover bugs in your application (or in the SDK
 itself).
 
 Components
-~~~~~~~~~~
+^^^^^^^^^^
 
 To debug anything, it is necessary to be able to identify in which domain a
 problem is found. Specifically there are four components which participate
@@ -276,13 +276,13 @@ just dispatch to the C layer. Most of the view option and row code is handled
 here as well, with the C layer just performing the lower level network handling.
 
 Exception Handling
-~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^
 
 When something goes wrong, an exception of `CouchbaseError` is typically thrown.
 The exception object contains a lot of information which can be used to find out
 what went wrong.
 
-[source,Python]
+[source,python]
 --------------------------------------------
 from couchbase import Couchbase
 from couchbase.exceptions import CouchbaseError
@@ -351,7 +351,7 @@ means the object was of an invalid type or format.
 -----------------------------------------
 
 Application Crashes
-~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^
 
 As this is a C extension, some fatal errors may result in an application crash.
 On Unix-based systems, these typically look like this:

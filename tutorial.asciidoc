@@ -1,5 +1,5 @@
 Tutorial
-========
+--------
 
 In this chapter we will build on the foundations of the _Getting Started_ guide,
 and build a simple web application on top of it. Make sure to have the
@@ -19,7 +19,7 @@ Note that the sample application provides more content then described in this
 tutorial but it should be simple to navigate while reading this tutorial.
 
 Quickstart
-----------
+~~~~~~~~~~
 
 * Ensure you have _Flask_ installed. You can either install it via your
 distribution or use `pip install flask`.
@@ -75,10 +75,10 @@ shell> python beer.py
 
 
 Preparations
-------------
+~~~~~~~~~~~~
 
 Project Setup
-~~~~~~~~~~~~~
+^^^^^^^^^^^^^
 
 Create your project directory, we will call it `beer`
 
@@ -125,7 +125,7 @@ has all the dependencies included. We'll now move on and configure the
 `beer-sample` bucket the way we need it.
 
 Preparing the Views
-~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^
 
 The beer-sample bucket comes with a small set of views already predefined,
 but to make our application function correctly we need some more.
@@ -205,7 +205,7 @@ Couchbase Server, here are some useful resources:
 * Timestamp Pattern: many developers frequently ask about extracting information based on date or time. To find out more, see Couchbase Views, Sample Patterns.
 
 Structure of the Flask Application
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 We'll be showing bits and pieces of the web app as it pertains to specific sections.
 The entire file is less than 300 lines long, and can be inspected by looking
@@ -216,7 +216,7 @@ First, our imports
 We need some extra imports to be able to handle exceptions properly
 and let us build better view queries.
 
-[source,Python]
+[source,python]
 .beer.py (imports)
 ----------------------------------
 from collections import namedtuple
@@ -232,7 +232,7 @@ from couchbase.views.params import UNSPEC, Query
 
 
 Then, we want to set some constants for our application.
-[source,Python]
+[source,python]
 .beer.py (configuration)
 ---------------------------------
 DATABASE = 'beer-sample'
@@ -245,7 +245,7 @@ breweries to show in the search results.
 
 
 Now, we're ready to create our `Flask` application instance
-[source,Python]
+[source,python]
 .beer.py (creating the application)
 -----------------------------------
 app = Flask(__name__, static_url_path='')
@@ -270,7 +270,7 @@ them in the `app.config` dictionary.
 
 
 Then, define a function to give us a database connection
-[source,Python]
+[source,python]
 .beer.py (generating a Connection object)
 -----------------------------------------
 def connect_db():
@@ -409,7 +409,7 @@ Now we're finally getting into the cooler stuff of this tutorial.
 
 First, we'll implement several classes for our pages to use.
 
-[source,Python]
+[source,python]
 ------------------
 
 class Beer(object):
@@ -498,7 +498,7 @@ the `query` function) will now yield results from it as we iterate over it.
 
 Before we forget, let's put this all together:
 
-[source,Python]
+[source,python]
 ---------------
 @app.route('/beers')
 def beers():
@@ -587,7 +587,7 @@ Deleting Beers
 Due to the simplicity of Couchbase and Flask, we can implement a single method
 to delete both beers and breweries:
 
-[source,Python]
+[source,python]
 ---------------------------------
 @app.route('/<otype>/delete/<id>')
 def delete_object(otype, id):
@@ -697,7 +697,7 @@ Finally, we provide links at the bottom to `Edit` and `Delete` the beer.
 Editing Beers
 ^^^^^^^^^^^^^
 
-[source,Python]
+[source,python]
 ---------------
 def normalize_beer_fields(form):
     doc = {}
@@ -849,7 +849,7 @@ Creating Beers
 
 This is largely the same as editing beers:
 
-[source,Python]
+[source,python]
 ---------------
 @app.route('/beers/create')
 def create_beer_display():
@@ -937,7 +937,7 @@ new rows.
 
 The search handler looks like this:
 
-[source,Python]
+[source,python]
 -------------------------------
 def return_search_json(ret):
     response = app.make_response(json.dumps(ret))

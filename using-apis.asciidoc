@@ -1,5 +1,5 @@
 Using the APIs
-==============
+--------------
 
 [NOTE]
 This section only gives an introduction to the APIs available. The actual
@@ -10,13 +10,13 @@ This section goes a level lower than the 'Getting Started' guide and features
 the aspects of the APIs offered by the SDK.
 
 Connecting
-----------
+~~~~~~~~~~
 
 While this has been discussed extensively in previous
 sections, you can connect to a bucket using the simple
 `Couchbase.connect()` class method.
 
-[source,Python]
+[source,python]
 ---------------------------------
 from couchbase import Couchbase
 
@@ -24,7 +24,7 @@ client = Couchbase.connect(bucket='default')
 --------------------------------
 
 Multiple Nodes
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 Sometimes, it might be beneficial to let the client know
 beforehand about multiple nodes; for example if you have
@@ -34,7 +34,7 @@ exception. You can pass multiple nodes as a list so that
 the constructor will try each node until it gets a successful
 connection (or the timeout is reached)
 
-[source,Python]
+[source,python]
 .Using Multiple Nodes
 --------------------------------
 
@@ -45,7 +45,7 @@ c = Couchbase.connect(
 ---------------------------------
 
 Timeouts
-~~~~~~~~
+^^^^^^^^
 
 The client uses timeouts so that your application will not wait too
 long if the cluster is overloaded or there are connectivity issues.
@@ -53,39 +53,39 @@ By default, this timeout value is 2.5 seconds.
 
 You can adjust this value by setting it in the constructor
 
-[source,Python]
+[source,python]
 ---------------
 c = Couchbase.connect(bucket='default', timeout=5.5)
 ---------------
 
 Or setting the `timeout` property
 
-[source,Python]
+[source,python]
 ---------------
 c.timeout = 4.2
 ---------------
 
 
 SASL Buckets
-~~~~~~~~~~~~
+^^^^^^^^^^^^
 
 If your bucket is password protected, you can pass the SASL password
 using the `password` keyword parameter in the constructor
 
-[source,Python]
+[source,python]
 ----------------
 c = Couchbase.connect(bucket='default', password='s3cr3t')
 ----------------
 
 Threads
-~~~~~~~
+^^^^^^^
 
 This will be discussed later on in more detail, but the `Connection`
 object is fully thread-safe out of the box by default. You may tune
 some parameters which sacrifice thread-safety for performance.
 
 API Return Values
------------------
+~~~~~~~~~~~~~~~~~
 
 Before we discuss the individual sections of the API, we'll discuss the common
 return value which is the `Result` object.
@@ -106,7 +106,7 @@ This is the low level return code as received from the underlying
 this will be useful on operations in which `quiet` was set to `True`. Normally
 you'd use it like this
 +
-[source,Python]
+[source,python]
 ---------------
 result = client.get("key", quiet=True)
 if not result.success:
@@ -120,10 +120,11 @@ interesting metadata to aid in debugging this particular operation.
 
 
 Storing Data
-------------
+~~~~~~~~~~~~
+
 
 Setting Values
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 These methods, if successful, set the value of their respective keys.
 If they fail, they will raise an exception (and are not affected by the
@@ -150,13 +151,13 @@ if the key does not already exist
 
 
 Arithmetic and Counter Operations
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 These methods operate on 64 bit integer counters. They provide efficient
 mutation and retrieval of values. You may use these in place of the
 `set` family of methods when working with numeric values; for example:
 
-[source,Python]
+[source,python]
 .Using `set`
 ---------------
 key = "counter"
@@ -167,7 +168,7 @@ except KeyNotFoundError:
     c.add(key, 10)
 ---------------
 
-[source,Python]
+[source,python]
 .Using `incr`
 ---------------
 key = "counter"
@@ -203,7 +204,7 @@ to _subtract_ from the key
 
 
 Append and Prepend Operations
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 These operations act on the stored values and append or prepend additional
 data to it. They treat existing values as strings and such only work if the
@@ -214,7 +215,7 @@ The `format` argument is still available, but the value must be either
 
 Otherwise, they are part of the `set` family of methods
 
-[source,Python]
+[source,python]
 ---------------
 c.set("greeting", "Hello", format=FMT_UTF8)
 c.append("greeting", " World!")
@@ -239,7 +240,7 @@ to a _JSON_ or _pickle_ string.
 
 Consider:
 
-[source,Python]
+[source,python]
 ---------------
 c.set("a_dict", { "key for" : "a dictionary" })
 ---------------
@@ -250,7 +251,7 @@ The key `a_dict` now looks like this on the server:
 
 Now, prepend to it
 
-[source,Python]
+[source,python]
 ---------------
 c.prepend("a dict", "blah blah blah")
 ---------------
@@ -283,7 +284,7 @@ value is a string or not, and the server does not enforce this.
 
 
 Expiration Operations
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 This consists of a single method which is used to update the expiration time
 of a given key. It is passed two arguments, a key and an expiration time.
@@ -305,7 +306,7 @@ Update the given key with the specified `ttl`.
 
 
 Deleting Data
--------------
+~~~~~~~~~~~~~
 
 * `client.delete(key, quiet=False)`
 +
@@ -313,7 +314,7 @@ Remove a key from the server. If `quiet` is specified, an exception is not
 raised if the key does not exist.
 
 Retrieving Data
----------------
+~~~~~~~~~~~~~~~
 
 * `client.get(key, quiet=False, ttl=0)`
 +
@@ -327,7 +328,7 @@ This returns a `ValueResult` object (subclass of `Result`) which may be used
 to obtain the actual value via the `value` property.
 
 Locking Data/Ensuring Consistency
----------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In production deployments, it is possible that you will have more than a single
 instance of your application trying to modify the same key. In this case a race
@@ -336,7 +337,7 @@ overidden.
 
 Consider this code:
 
-[source,Python]
+[source,python]
 --------------------------------
 def add_friend(user_id, friend):
     result = c.get("user_id-" + user_id)
@@ -369,7 +370,7 @@ differs.
 
 
 Opportunistic Locking
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 The opportunistic locking functionality can be employed by using the
 `cas` keyword argument to the `set` family of methods.
@@ -382,7 +383,7 @@ In the previous example (i.e. `add_friend`), we can now modify it so
 that it handles concurrent modifications gracefully:
 
 
-[source,Python]
+[source,python]
 --------------------------------
 def add_friend(user_id, friend):
 
@@ -404,7 +405,7 @@ This is called _opportunistic_ locking, because if the _CAS_ is not modified
 during the first loop, the operation succeeds without any additional steps.
 
 Pessimistic Locking
-~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^
 
 Pessimistic locking is useful for highly contented resources; that is, if
 the key being accessed has a high likelihood of being contented. While
@@ -443,7 +444,7 @@ exception.
 
 We can rewrite our `add_friend` example using the lock functions
 
-[source,Python]
+[source,python]
 --------------------------------
 def add_friend(user_id, friend):
     while True:
@@ -487,7 +488,7 @@ successful, however.
 
 
 Working With Views
-------------------
+~~~~~~~~~~~~~~~~~~
 
 This section will provide a bit more information on how to work with views from
 the Python SDK. If you are new to views, it is recommended you
@@ -536,7 +537,7 @@ The object returned by `query` is a class which defines an `__iter__` (and thus
 does not have a `__len__` or `items()` method). You can convert it to a list by
 using _list comprehension_:
 
-[source,Python]
+[source,python]
 ---------------
 rows_as_list = [ c.query("beer", "brewery_beers") ]
 ---------------
@@ -563,7 +564,7 @@ You can also pass options for the server itself to handle. These options
 may be passed as either an encoded query string, a list of key-value
 parameters, or a `Query` object.
 
-[source,Python]
+[source,python]
 .Using encoded query strings
 ----------------------------
 client.query("beer", "brewery_beers", query="limit=3&skip=1&stale=false")
@@ -576,7 +577,7 @@ However, it is impossible for the SDK to verify the inputs and thus it is
 suggested you only use a raw string once your query has been refined and
 optimized.
 
-[source,Python]
+[source,python]
 .Using key-value pairs
 ----------------------
 client.query("beer", "brewery_beers", limit=3, skip=1, stale=False)
@@ -584,7 +585,7 @@ client.query("beer", "brewery_beers", limit=3, skip=1, stale=False)
 
 This allows simple and idiomatic construction of query options.
 
-[source,Python]
+[source,python]
 .Using a Query object
 ---------------------
 from couchbase.views.params import Query
@@ -605,14 +606,14 @@ to integrate if using an IDE with code completion.
 
 
 Common View Parameters
-~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^
 
 Here are some common parameters used for views. They are available either
 as keyword options to the `query` method, or as properties on the `Query`
 object
 
 Server Parameters
-^^^^^^^^^^^^^^^^^
++++++++++++++++++
 
 * `mapkey_range = [ "start", "end" ]`
 +
@@ -639,7 +640,7 @@ Possible values are `True`, `False`, or the string `update_after`.
 Limit the number of rows returned by the query
 
 `query` Method Options
-^^^^^^^^^^^^^^^^^^^^^^
+++++++++++++++++++++++
 
 These are only available as options to the `query` method, and should
 not be used on the `Query` object.
@@ -654,7 +655,7 @@ Maximum amount of rows to fetch at once
 
 
 Pagination
-~~~~~~~~~~
+^^^^^^^^^^
 
 Often, view results can be large. By default the client reads all the results
 into memory and then returns an iterator over that result set. You can change
@@ -670,7 +671,7 @@ the results.
 
 
 Design Document Management
---------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The Python Couchbase SDK provides means by which you can manage design
 documents; including all phases of design document development. You can

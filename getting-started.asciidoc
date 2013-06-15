@@ -1,9 +1,9 @@
 Getting Started
-===============
+---------------
 
 
 Installing the Couchbase Client Libraries
------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Before you start, you should have Python version 2.6 or later.
 Note that Python versions 3.x are supported as well.
@@ -35,13 +35,13 @@ commandline.
 If successful, should exit and not output anything
 
 Hello Couchbase
----------------
+~~~~~~~~~~~~~~~
 
 To follow the tradition of programming tutorials, we'll start with
 "Hello Couchbase". Note that this example expects you to have installed
 the "beer-sample" bucket (which is provided with the default install).
 
-[source,Python]
+[source,python]
 .hello-couchbase.py
 -------------------------------------------------------------------
 from couchbase import Couchbase
@@ -143,7 +143,7 @@ outputs the `Result` object of the replace operation.
 
 
 Working With Documents
-----------------------
+~~~~~~~~~~~~~~~~~~~~~~
 
 A document in Couchbase server consists of a 'key', 'value', and 'metadata'.
 We will explain the following briefly
@@ -168,7 +168,7 @@ Note that it is possible to also store arbitrary Python objects using the
 
 
 Storing Simple Documents
-~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 This section provides a bit more insight in how to store documents. This is a
 prerequisite to demonstrate how to retrieve documents (as there must be
@@ -213,7 +213,7 @@ key using one of the `set` methods.
 
 The following code demonstrates the four functions above
 
-[source,Python]
+[source,python]
 -------------------------------------------------
 
 from couchbase import Couchbase
@@ -308,11 +308,11 @@ Getting the new value
 
 
 Reading Documents
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 
 Getting Documents By Key
-^^^^^^^^^^^^^^^^^^^^^^^^
+++++++++++++++++++++++++
 
 Couchbase allows two ways to fetch your documents: You can retrieve a
 document by its _key_, or you can retrieve a set of documents which
@@ -325,7 +325,7 @@ the `get` method. It will return a `Result` object on success which can
 then be used to extract the value.
 
 .Getting A Single Document
-[source,Python]
+[source,python]
 ------------------------------------------
 client.store("my list", [])
 result = client.get("my list")
@@ -340,7 +340,7 @@ with the keys passed to `get_multi` as keys, and the
 values being a `Result` object for the result of each key.
 
 .Getting Multiple Documents
-[source,Python]
+[source,python]
 ------------------------------------------
 client.set_multi({
     'sheep_counting' : ['first sheep', 'second sheep'],
@@ -369,7 +369,7 @@ exceptions on `get` for subsequent calls).
 When using `quiet`, you can still determine if a key was retrieved successfuly
 by examining the `success` property of the value object
 
-[source,Python]
+[source,python]
 ------------------------------------------------
 result = client.get("non-exist-key", quiet=True)
 if result.success:
@@ -392,7 +392,7 @@ Note that on `get_multi` with the quiet option enabled, you can immediately
 determine if all the keys were fetched successfully or not by examining the
 returned `MultiResult` 's `all_ok` property.
 
-[source,Python]
+[source,python]
 -------------------------------------
 results = client.get_multi(("i exist", "but i don't"), quiet=True)
 if not results.all_ok:
@@ -403,7 +403,7 @@ if not results.all_ok:
 
 
 Getting Documents by Views
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+++++++++++++++++++++++++++
 
 In addition to fetching documents by keys, you may also employ _Views_ to retrieve
 information using secondary indexes. This guide gets you started on how to use
@@ -416,7 +416,7 @@ this directly from the Python SDK, as will be shown later).
 You can then query the view results by calling the `query` method on the
 `Connection` object. Simply pass it the design and view name.
 
-[source,Python]
+[source,python]
 ------------------------------------
 view_results = client.query("beer", "brewery_beers")
 for result in view_results:
@@ -479,7 +479,7 @@ but not load the entire resultset in memory.
 
 Here's a more extensive example
 
-[source,Python]
+[source,python]
 ------------------------------------------------------------
 results = client.query("beer", "brewery_beers",
                        include_docs=True, limit=5)
@@ -490,13 +490,13 @@ for result in results:
 
 
 Encoding and Serialization
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The default encoding format for the Python SDK is JSON. This means you can
 pass any valid object which is accepted by the standard `json.dumps`
 library function and you will receive it back when you retrieve it.
 
-[source,Python]
+[source,python]
 ------------------------------------------------
 # -*- coding: utf-8 -*-
 
@@ -546,10 +546,10 @@ for the document you just created (in this case, it's `a_key`)), you'll see
 it show up and recognized by the document browser). This means it can now
 be indexed and queried against using views.
 
-image:static/json-document.png[As seen by document browser]
+image:images/json-document.png[As seen by document browser]
 
 Other Formats
-^^^^^^^^^^^^^
++++++++++++++
 
 While JSON is the default format, it might be useful to utilize other formats.
 For example, if you wish to store complex custom Python objects and classes
@@ -557,7 +557,7 @@ and don't require that they be indexed with views, you can use the `pickle`
 serialization format. This allows you to store types that will not be accepted
 by JSON:
 
-[source,Python]
+[source,python]
 -------------------------------------------
 import pprint
 
@@ -586,7 +586,7 @@ in Python 3, a `str` is a string with an encoding (i.e. Python 2's `unicode`)
 while `bytes` is a sequence of bytes which must be explicitly converted in
 order to be used with text operations.
 
-[source,Python]
+[source,python]
 -------------------------------------------
 import pprint
 
@@ -620,7 +620,7 @@ other than _UTF-8_. However since the view engine operates using _UTF-8_, we
 select this as the default. If you need a different encoding, consider using
 the `Transcoder` interface.
 
-[source,Python]
+[source,python]
 ------------------------------------------
 from couchbase import Couchbase, FMT_UTF8
 
@@ -642,13 +642,13 @@ You can set the default format for the value type you use most by
 setting the `default_format` property on the connection object,
 either during construction or afterwards:
 
-[source,Python]
+[source,python]
 -----------------
 c = Couchbase.connect(bucket='default', default_format=FMT_UTF8)
 -----------------
 
 Or
-[source,Python]
+[source,python]
 -----------------
 c.default_format = FMT_PICKLE
 -----------------
