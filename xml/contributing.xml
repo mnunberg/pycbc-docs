@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<?asciidoc-toc?>
+<?asciidoc-numbered?>
+<chapter id="_contributing">
+<title>Contributing</title>
+<simpara>This section contains means by which you can contribute to this SDK.</simpara>
+<section id="_general_information">
+<title>General Information</title>
+<simpara>The latest source code for the Python SDK may be found on <emphasis>github</emphasis>. It is
+located at <ulink url="https://github.com/couchbase/couchbase-python-client">https://github.com/couchbase/couchbase-python-client</ulink>.</simpara>
+<simpara>If you wish to contribute to the C extension itself, it may be worthwhile
+using a debug build of Python.</simpara>
+<section id="_compiling_python_from_source">
+<title>Compiling Python From Source</title>
+<simpara>You may skip this section if you do not intend to contribute to the C part
+of the SDK.</simpara>
+<note><simpara>The instructions here have been tested on Python 2.6.7 and Python 3.2.4.
+They will likely work for any version of Python.</simpara></note>
+<simpara>In order to generate a debug build of python, you will need to compile it
+from source. To do this, you will need to modify some Python source files
+as instructed in the <literal>Misc/README.valgrind</literal> file within the Python source
+distribution.</simpara>
+<simpara>Additionally, if you wish to have your Python be useful for installing
+other packages (for example, <literal>nose</literal>), you will need to have <literal>pip</literal>
+and <literal>distribute</literal> installed. These themselves depend on several core modules
+which may not be built by default on some systems.</simpara>
+<simpara>The <literal>Modules/Setup</literal> file may be modified using the following diff as a
+guidline:</simpara>
+<programlisting language="Diff" linenumbering="unnumbered">--- ../../tmp/Python-2.6.7/Modules/Setup.dist   2008-11-27 02:15:12.000000000 -0800
++++ Setup.dist  2013-05-15 15:58:30.559170619 -0700
+@@ -162,7 +162,7 @@
+ # it, depending on your system -- see the GNU readline instructions.
+ # It's okay for this to be a shared library, too.
+
+-#readline readline.c -lreadline -ltermcap
++readline readline.c -lreadline -ltermcap
+
+
+ # Modules that should always be present (non UNIX dependent):
+@@ -215,6 +215,7 @@
+ #_ssl _ssl.c \
+ #      -DUSE_SSL -I$(SSL)/include -I$(SSL)/include/openssl \
+ #      -L$(SSL)/lib -lssl -lcrypto
++_ssl _ssl.c -DUSE_SSL -lssl -lcrypto
+
+ # The crypt module is now disabled by default because it breaks builds
+ # on many systems (where -lcrypt is needed), e.g. Linux (I believe).
+@@ -248,14 +249,14 @@
+ # Message-Digest Algorithm, described in RFC 1321.  The necessary files
+ # md5.c and md5.h are included here.
+
+-#_md5 md5module.c md5.c
++_md5 md5module.c md5.c
+
+
+ # The _sha module implements the SHA checksum algorithms.
+ # (NIST's Secure Hash Algorithms.)
+-#_sha shamodule.c
+-#_sha256 sha256module.c
+-#_sha512 sha512module.c
++_sha shamodule.c
++_sha256 sha256module.c
++_sha512 sha512module.c
+
+
+ # SGI IRIX specific modules -- off by default.
+@@ -460,7 +461,7 @@
+ # Andrew Kuchling's zlib module.
+ # This require zlib 1.1.3 (or later).
+ # See http://www.gzip.org/zlib/
+-#zlib zlibmodule.c -I$(prefix)/include -L$(exec_prefix)/lib -lz
++zlib zlibmodule.c -I$(prefix)/include -L$(exec_prefix)/lib -lz
+
+ # Interface to the Expat XML parser
+ #</programlisting>
+<simpara>Note that on some distributions (specifically Debian) you may get a build
+failure when building the <literal>ssl</literal> module. If so, you likely need to modify
+the <literal>Modules/_ssl.c</literal> file like so:</simpara>
+<programlisting language="Diff" linenumbering="unnumbered">--- ../../tmp/Python-2.6.7/Modules/_ssl.c       2010-08-03 11:50:32.000000000 -0700
++++ _ssl.c      2013-05-15 15:58:03.471170217 -0700
+@@ -302,8 +302,6 @@
+         self-&gt;ctx = SSL_CTX_new(TLSv1_method()); /* Set up context */
+     else if (proto_version == PY_SSL_VERSION_SSL3)
+         self-&gt;ctx = SSL_CTX_new(SSLv3_method()); /* Set up context */
+-    else if (proto_version == PY_SSL_VERSION_SSL2)
+-        self-&gt;ctx = SSL_CTX_new(SSLv2_method()); /* Set up context */
+     else if (proto_version == PY_SSL_VERSION_SSL23)
+         self-&gt;ctx = SSL_CTX_new(SSLv23_method()); /* Set up context */
+     PySSL_END_ALLOW_THREADS</programlisting>
+<simpara>Once the source tree is prepared, you can do something like:</simpara>
+<screen>shell&gt; ./configure --without-pymalloc --prefix=/source/pythons/py267
+shell&gt; make install</screen>
+</section>
+<section id="_running_tests">
+<title>Running Tests</title>
+<simpara>If you&#8217;ve made changes to the library, you need to run the test suite to
+ensure that nothing broke with your changes.</simpara>
+<simpara>To run the tests, you need to have the <literal>nose</literal> package installed (this may
+also work with the <literal>unittest</literal> module as well, but is less tested).</simpara>
+<simpara>Additionally, you need a real cluster to test against. The test may modify
+the buckets specified, so be sure not to point it to a production server(!).</simpara>
+<simpara>Note that the views test may fail if you have made changes to the <literal>beer-sample</literal>
+bucket.</simpara>
+<simpara>To tell the test about your cluster setup, copy the file <literal>tests/test.ini.sample</literal>
+to <literal>tests/test.ini</literal> and modify as needed.</simpara>
+<simpara>To run the tests, simply do:</simpara>
+<screen>shell&gt; nosetest -v</screen>
+<simpara>from within the root of the SDK source.</simpara>
+</section>
+<section id="_building_docs">
+<title>Building Docs</title>
+<simpara>You will need <literal>sphinx</literal> and <literal>numpydoc</literal> installed. Simply do</simpara>
+<screen>shell&gt; make -C docs html</screen>
+<simpara>Once done, the built HTML should be in <literal>docs/build/html</literal>, and you can begin
+browsing by opening <literal>docs/build/html/index.html</literal> in your browser.</simpara>
+</section>
+</section>
+<section id="_source_style_guidelines">
+<title>Source Style Guidelines</title>
+<simpara>For the Python code, a loose adherence to <emphasis>PEP-8</emphasis> should be used.
+For the C extension code, a fairly more strict adherence to <emphasis>PEP-7</emphasis> should
+be used.</simpara>
+<note><simpara>These rules are meant to be broken; this just reflects some guidelines to use.</simpara></note>
+<simpara>In general:</simpara>
+<itemizedlist>
+<listitem>
+<simpara>
+Use spaces, not tabs
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+Lines should never be longer than 80 columns
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+Code should be compatible with Python versions 2.6 up to the latest 3.x
+</simpara>
+</listitem>
+</itemizedlist>
+<simpara>Python-Specific:</simpara>
+<itemizedlist>
+<listitem>
+<simpara>
+Doc strings should be readable by Sphinx
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+Methods should not have more than three positional arguments
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+Avoid using string literals in code
+</simpara>
+<simpara>If a new object makes use of a dictionary, consider converting this
+dictionary to a proper Python object, using a <literal>namedtuple</literal>, etc.</simpara>
+</listitem>
+<listitem>
+<simpara>
+Avoid dependencies not in Python&#8217;s standard library
+</simpara>
+<simpara>Though you may add conditional functionality depending on whether a
+specific library is installed or not.</simpara>
+</listitem>
+<listitem>
+<simpara>
+Don&#8217;t use threads
+</simpara>
+<simpara>While threads are a useful construct in application code, they do not belong
+in library code without good reason.</simpara>
+</listitem>
+</itemizedlist>
+<simpara>C-Specific:</simpara>
+<itemizedlist>
+<listitem>
+<simpara>
+Use of <literal>goto</literal> is better than deeply nested blocks
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+Return type and storage specifiers should be on their own line
+</simpara>
+<simpara>Thus:</simpara>
+<programlisting language="C" linenumbering="unnumbered">static PyObject*
+do_something(PyObject *self, PyObject *args, ...)
+{
+    /** ... **/
+}</programlisting>
+<simpara>Rather than</simpara>
+<programlisting language="C" linenumbering="unnumbered">static PyObject *do_something(PyObject *self, PyObject *args)
+{
+    /** ... **/
+}</programlisting>
+</listitem>
+<listitem>
+<simpara>
+Code should compile with the following flags (for GCC or clang)
+</simpara>
+<screen>-std=c89 -pedantic -Wall -Wextra -Werror \
+    -Wno-long-long -Wno-missing-field-initializers</screen>
+</listitem>
+<listitem>
+<simpara>
+Non-static functions should have a <literal>pycbc_</literal> prefix
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+Functions exposed as Python methods should be named as <literal>pycbc_&lt;Object&gt;_&lt;Method&gt;</literal>
+</simpara>
+<simpara>Where <literal>&lt;Object&gt;</literal> is the name of the class in the SDK (e.g. <literal>Connection</literal>) and
+<literal>&lt;Method&gt;</literal> is the name of the method (e.g. <literal>&lt;get&gt;</literal>), thus, <literal>pycbc_Connection_get</literal></simpara>
+</listitem>
+<listitem>
+<simpara>
+Code should be portable to Win32
+</simpara>
+<simpara>Therefore, only include standard library headers and use <literal>PyOS_*</literal> functions when
+needed.</simpara>
+</listitem>
+</itemizedlist>
+</section>
+</chapter>

@@ -1,0 +1,635 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<?asciidoc-toc?>
+<?asciidoc-numbered?>
+<chapter id="_using_the_apis">
+<title>Using the APIs</title>
+<note><simpara>This section only gives an introduction to the APIs available. The actual
+API reference will feature more options for each of the APIs described here
+and will always be more up-to-date than the documentation here.</simpara></note>
+<simpara>This section goes a level lower than the <emphasis>Getting Started</emphasis> guide and features
+the aspects of the APIs offered by the SDK.</simpara>
+<section id="_connecting">
+<title>Connecting</title>
+<simpara>While this has been discussed extensively in previous
+sections, you can connect to a bucket using the simple
+<literal>Couchbase.connect()</literal> class method.</simpara>
+<programlisting language="python" linenumbering="unnumbered">from couchbase import Couchbase
+
+client = Couchbase.connect(bucket='default')</programlisting>
+<section id="_multiple_nodes">
+<title>Multiple Nodes</title>
+<simpara>Sometimes, it might be beneficial to let the client know
+beforehand about multiple nodes; for example if you have
+several nodes in the cluster and some may not be up; if only
+one node is passed, the client&#8217;s constructor will raise an
+exception. You can pass multiple nodes as a list so that
+the constructor will try each node until it gets a successful
+connection (or the timeout is reached)</simpara>
+<formalpara><title>Using Multiple Nodes</title><para>
+<programlisting language="python" linenumbering="unnumbered">c = Couchbase.connect(
+    bucket='default',
+    host=['foo.com', 'bar.com', 'baz.com']
+)</programlisting>
+</para></formalpara>
+</section>
+<section id="_timeouts">
+<title>Timeouts</title>
+<simpara>The client uses timeouts so that your application will not wait too
+long if the cluster is overloaded or there are connectivity issues.
+By default, this timeout value is 2.5 seconds.</simpara>
+<simpara>You can adjust this value by setting it in the constructor</simpara>
+<programlisting language="python" linenumbering="unnumbered">c = Couchbase.connect(bucket='default', timeout=5.5)</programlisting>
+<simpara>Or setting the <literal>timeout</literal> property</simpara>
+<programlisting language="python" linenumbering="unnumbered">c.timeout = 4.2</programlisting>
+</section>
+<section id="_sasl_buckets">
+<title>SASL Buckets</title>
+<simpara>If your bucket is password protected, you can pass the SASL password
+using the <literal>password</literal> keyword parameter in the constructor</simpara>
+<programlisting language="python" linenumbering="unnumbered">c = Couchbase.connect(bucket='default', password='s3cr3t')</programlisting>
+</section>
+<section id="_threads">
+<title>Threads</title>
+<simpara>This will be discussed later on in more detail, but the <literal>Connection</literal>
+object is fully thread-safe out of the box by default. You may tune
+some parameters which sacrifice thread-safety for performance.</simpara>
+</section>
+</section>
+<section id="_api_return_values">
+<title>API Return Values</title>
+<simpara>Before we discuss the individual sections of the API, we&#8217;ll discuss the common
+return value which is the <literal>Result</literal> object.</simpara>
+<simpara>Typically subclasses of this object are returned appropriate for the operation
+executed.</simpara>
+<simpara>All Result objects have the following properties</simpara>
+<itemizedlist>
+<listitem>
+<simpara>
+<literal>success</literal>
+</simpara>
+<simpara>A boolean property indicating whether this operation was successful or not.</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>rc</literal>
+</simpara>
+<simpara>This is the low level return code as received from the underlying
+<literal>libcouchbase</literal> layer. This is 0 on success and nonzero on failure. Typically
+this will be useful on operations in which <literal>quiet</literal> was set to <literal>True</literal>. Normally
+you&#8217;d use it like this</simpara>
+<programlisting language="python" linenumbering="unnumbered">result = client.get("key", quiet=True)
+if not result.success:
+    print "Got error code", result.rc</programlisting>
+</listitem>
+<listitem>
+<simpara>
+<literal>__str__</literal>
+</simpara>
+<simpara>While this isn&#8217;t really a property, printing out the result object will yield
+interesting metadata to aid in debugging this particular operation.</simpara>
+</listitem>
+</itemizedlist>
+</section>
+<section id="_storing_data">
+<title>Storing Data</title>
+<section id="_setting_values">
+<title>Setting Values</title>
+<simpara>These methods, if successful, set the value of their respective keys.
+If they fail, they will raise an exception (and are not affected by the
+<literal>quiet</literal> property).</simpara>
+<simpara>These methods can accept a <literal>format</literal> property (which indicates the format
+in which the value will be stored on the server) as well as a <literal>ttl</literal>
+property which indicates the lifetime of the value; after the <literal>ttl</literal> is
+reached, the value is deleted from the server.</simpara>
+<itemizedlist>
+<listitem>
+<simpara>
+<literal>client.set(key, value, **kwargs)</literal>
+</simpara>
+<simpara>Will set the key unconditionally</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>client.add(key, value, **kwargs)</literal>
+</simpara>
+<simpara>Will set the key to the specified value, but only if the key does not
+already exists (an exception will be raised otherwise).</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>client.replace(key, value, **kwargs)</literal>
+</simpara>
+<simpara>Will replace an existing key with a new value. This will raise an exception
+if the key does not already exist</simpara>
+</listitem>
+</itemizedlist>
+</section>
+<section id="_arithmetic_and_counter_operations">
+<title>Arithmetic and Counter Operations</title>
+<simpara>These methods operate on 64 bit integer counters. They provide efficient
+mutation and retrieval of values. You may use these in place of the
+<literal>set</literal> family of methods when working with numeric values; for example:</simpara>
+<formalpara><title>Using <literal>set</literal></title><para>
+<programlisting language="python" linenumbering="unnumbered">key = "counter"
+try:
+    result = c.get("counter")
+    c.set(key, result.value + 1)
+except KeyNotFoundError:
+    c.add(key, 10)</programlisting>
+</para></formalpara>
+<formalpara><title>Using <literal>incr</literal></title><para>
+<programlisting language="python" linenumbering="unnumbered">key = "counter"
+c.incr(key, initial=10)</programlisting>
+</para></formalpara>
+<simpara>These methods accept the <literal>ttl</literal> argument to set the expiration time for their
+values, as well as an <literal>amount</literal> value which indicates by what amount to
+modify their values. Additionally, an <literal>initial</literal> keyword argument is available
+to provide the default value for the counter if it does not yet exists. If
+an <literal>initial</literal> argument is not provided and the key does not exist, an
+exception is raised.</simpara>
+<simpara>The value for the counter stored must either not exist (if <literal>initial</literal> is used)
+or should be a "Number", that is, a textual representation of an integer.</simpara>
+<simpara>If using the default <literal>FMT_JSON</literal>, then your integers are already compliant.</simpara>
+<simpara>If the existing value is not already a number, the server will raise an
+exception (specifically, a <literal>DeltaBadvalError</literal>).</simpara>
+<simpara>Arithmetic methods return a <literal>ValueResult</literal> object (subclass of <literal>Result</literal>). The
+<literal>value</literal> property can be used to obtain the current value of the counter.</simpara>
+<itemizedlist>
+<listitem>
+<simpara>
+<literal>c.incr(key, amount=1, ttl=0)</literal>
+</simpara>
+<simpara>Increments the value stored under the key.</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>c.decr(key, amount=1, ttl=0)</literal>
+</simpara>
+<simpara>Decrements the value stored under the key. In this case, <literal>amount</literal> is how much
+to <emphasis>subtract</emphasis> from the key</simpara>
+</listitem>
+</itemizedlist>
+</section>
+<section id="_append_and_prepend_operations">
+<title>Append and Prepend Operations</title>
+<simpara>These operations act on the stored values and append or prepend additional
+data to it. They treat existing values as strings and such only work if the
+existing data stored is a string (i.e. <literal>FMT_UTF8</literal> or <literal>FMT_BYTES</literal>).</simpara>
+<simpara>The <literal>format</literal> argument is still available, but the value must be either
+<literal>FMT_UTF8</literal> or <literal>FMT_BYTES</literal>. If not specified, it defaults to <literal>FMT_UTF8</literal></simpara>
+<simpara>Otherwise, they are part of the <literal>set</literal> family of methods</simpara>
+<programlisting language="python" linenumbering="unnumbered">c.set("greeting", "Hello", format=FMT_UTF8)
+c.append("greeting", " World!")
+c.get("greeting").value == "Hello World!"
+c.prepend("greeting", "Why, ")
+c.get("greeting").value == "Why, Hello World!"</programlisting>
+<itemizedlist>
+<listitem>
+<simpara>
+<literal>c.append(key, data_to_append, **kwargs)</literal>
+</simpara>
+<simpara>Appends data to an existing value.</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>c.prepend(key, data_to_prepend, **kwargs)</literal>
+</simpara>
+<simpara>Prepends data to an existing value</simpara>
+</listitem>
+</itemizedlist>
+<caution>
+<simpara>Ensure that you only append or prepend to values which were initially
+stored as <literal>FMT_UTF8</literal> or <literal>FMT_BYTES</literal>. It does not make sense to append
+to a <emphasis>JSON</emphasis> or <emphasis>pickle</emphasis> string.</simpara>
+<simpara>Consider:</simpara>
+<programlisting language="python" linenumbering="unnumbered">c.set("a_dict", { "key for" : "a dictionary" })</programlisting>
+<simpara>The key <literal>a_dict</literal> now looks like this on the server:</simpara>
+<literallayout class="monospaced">{"key for":"a dictionary"}</literallayout>
+<simpara>Now, prepend to it</simpara>
+<programlisting language="python" linenumbering="unnumbered">c.prepend("a dict", "blah blah blah")</programlisting>
+<simpara>The value for <literal>a_dict</literal> looks like this now</simpara>
+<literallayout class="monospaced">blah blah blah{"key for":"a dictionary"}</literallayout>
+<simpara>Now, when you&#8217;ll try to get it back, you&#8217;ll see this happen:</simpara>
+<screen>&gt;&gt;&gt; c.get("a_dict")
+Traceback (most recent call last):
+  File "&lt;stdin&gt;", line 1, in &lt;module&gt;
+  File "couchbase/connection.py", line 325, in get
+    return _Base.get(self, key, ttl, quiet)
+  File "/usr/lib/python2.7/json/__init__.py", line 326, in loads
+    return _default_decoder.decode(s)
+  File "/usr/lib/python2.7/json/decoder.py", line 365, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+  File "/usr/lib/python2.7/json/decoder.py", line 383, in raw_decode
+    raise ValueError("No JSON object could be decoded")
+couchbase.exceptions.ValueFormatError: &lt;Failed to decode bytes, Results=1, inner_cause=No JSON object could be decoded, C Source=(src/convert.c,215), OBJ='blah blah blah{"key for": "a dictionary"}'&gt;</screen>
+<simpara>Unfortunately, the SDK has no way to pre-emptively determine whether the existing
+value is a string or not, and the server does not enforce this.</simpara>
+</caution>
+</section>
+<section id="_expiration_operations">
+<title>Expiration Operations</title>
+<simpara>This consists of a single method which is used to update the expiration time
+of a given key. It is passed two arguments, a key and an expiration time.</simpara>
+<simpara>If the expiration time is greater than zero, the key receives the new expiration
+time (which is an offset in seconds, assuming it is smaller than <literal>60*60*24*30</literal>
+(i.e. a month) - if it is greater, it is considered to be a Unix timestamp).</simpara>
+<simpara>If the expiration time is zero, then any existing expiration time is cleared
+and the value remains stored indefinitely (unless explicitly deleted or
+updated with expiration at a later time).</simpara>
+<simpara>This is a lightweight means by which to ensure entities "stay alive" without
+the overhead of having to re-set their value or fetch them.</simpara>
+<itemizedlist>
+<listitem>
+<simpara>
+<literal>c.touch(key, ttl)</literal>
+</simpara>
+<simpara>Update the given key with the specified <literal>ttl</literal>.</simpara>
+</listitem>
+</itemizedlist>
+</section>
+</section>
+<section id="_deleting_data">
+<title>Deleting Data</title>
+<itemizedlist>
+<listitem>
+<simpara>
+<literal>client.delete(key, quiet=False)</literal>
+</simpara>
+<simpara>Remove a key from the server. If <literal>quiet</literal> is specified, an exception is not
+raised if the key does not exist.</simpara>
+</listitem>
+</itemizedlist>
+</section>
+<section id="_retrieving_data">
+<title>Retrieving Data</title>
+<itemizedlist>
+<listitem>
+<simpara>
+<literal>client.get(key, quiet=False, ttl=0)</literal>
+</simpara>
+<simpara>Retrieve a key from the server. If the key does not exist, an exception is
+raised if the key does not exist and <literal>quiet</literal> was set to False.</simpara>
+</listitem>
+</itemizedlist>
+<simpara>If <literal>ttl</literal> is specified, this also modifies, in-situ, the expiration time
+of the key when retrieving it. This is also known as <emphasis>Get and Touch</emphasis></simpara>
+<simpara>This returns a <literal>ValueResult</literal> object (subclass of <literal>Result</literal>) which may be used
+to obtain the actual value via the <literal>value</literal> property.</simpara>
+</section>
+<section id="_locking_data_ensuring_consistency">
+<title>Locking Data/Ensuring Consistency</title>
+<simpara>In production deployments, it is possible that you will have more than a single
+instance of your application trying to modify the same key. In this case a race
+condition happens in which a modification one instance has made is immediately
+overidden.</simpara>
+<simpara>Consider this code:</simpara>
+<programlisting language="python" linenumbering="unnumbered">def add_friend(user_id, friend):
+    result = c.get("user_id-" + user_id)
+    result.value['friends'][friend] = { 'added' : time.time() }
+    c.set("user_id-" + user_id, result.value)</programlisting>
+<simpara>In this case, <literal>friends</literal> is a dictionary of friends the user has added,
+with the keys being the friend IDs, and the values being the time when
+they were added.</simpara>
+<simpara>When the friend has been added to the dictionary, the document is stored
+again on the server.</simpara>
+<simpara>Assume that two users add the same friend at the same time, in this
+case there is a race condition where one version of the friends dict
+ultimately wins.</simpara>
+<simpara>Couchbase provides two means by which to solve for this problem. The
+first is called <emphasis>Opportunistic Locking</emphasis>, while the second is called
+<emphasis>Pessimistic Locking</emphasis>.</simpara>
+<simpara>Both forms of locking involve using a <emphasis>CAS</emphasis> value. This value indicates
+the state of a document at a specific time. Whenever a document is
+modified, this value changes. The contents of this value are not significant
+to the application, however it can be used to ensure consistency. You may
+pass the <emphasis>CAS</emphasis> of the value as it is known to the application and have the
+server make the operation fail if the current (server-side) <emphasis>CAS</emphasis> value
+differs.</simpara>
+<section id="_opportunistic_locking">
+<title>Opportunistic Locking</title>
+<simpara>The opportunistic locking functionality can be employed by using the
+<literal>cas</literal> keyword argument to the <literal>set</literal> family of methods.</simpara>
+<simpara>Note that the <literal>cas</literal> value itself may be obtained by inspecting the
+<literal>cas</literal> property of the <literal>Result</literal> object returned by any of the API
+functions.</simpara>
+<simpara>In the previous example (i.e. <literal>add_friend</literal>), we can now modify it so
+that it handles concurrent modifications gracefully:</simpara>
+<programlisting language="python" linenumbering="unnumbered">def add_friend(user_id, friend):
+
+    while True:
+        result = c.get("user_id-" + user_id)
+        result.value['friends'][friend] = { 'added' : time.time() }
+
+        try:
+            c.set("user_id-" + user_id, result.value, cas=result.cas)
+            break
+
+        except KeyExistsError:
+            print "It seems someone tried to modify our user at the same time!"
+            print "Trying again"</programlisting>
+<simpara>This is called <emphasis>opportunistic</emphasis> locking, because if the <emphasis>CAS</emphasis> is not modified
+during the first loop, the operation succeeds without any additional steps.</simpara>
+</section>
+<section id="_pessimistic_locking">
+<title>Pessimistic Locking</title>
+<simpara>Pessimistic locking is useful for highly contented resources; that is, if
+the key being accessed has a high likelihood of being contented. While
+this method may be more complex, it is much more efficient for such resources.</simpara>
+<simpara>We can use pessimistic locking by employing the <literal>lock</literal> and <literal>unlock</literal> functions.</simpara>
+<simpara>The <literal>lock</literal> method locks the key on the server for a specified amount of time.
+Once the key is locked, further attempts to access the key (without passing
+the proper CAS) will fail with a <literal>TemporaryFailureError</literal> exception until the
+key is either unlocked, or the lock timeout is reached.</simpara>
+<itemizedlist>
+<listitem>
+<simpara>
+<literal>c.lock(key, ttl=0)</literal>
+</simpara>
+<simpara>This has the same behavior as <literal>get</literal> (i.e. it returns the value on the server),
+but the <literal>ttl</literal> argument now indicates how long the lock should be held for.</simpara>
+<simpara>By default, the server-side lock timeout is used (which is 15 seconds).</simpara>
+<simpara>Returns a <literal>ValueResult</literal></simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>c.unlock(key, cas)</literal>
+</simpara>
+<simpara>Unlocks the key. The key must have been previously locked and must have been
+locked with the specified <literal>cas</literal>. The <literal>cas</literal> value can be obtained from the
+<literal>Result</literal> object&#8217;s <literal>cas</literal> property</simpara>
+</listitem>
+</itemizedlist>
+<important><simpara>Calling any of the <literal>set</literal> methods with a valid CAS will implicitly
+unlock the key, and thus make an explicit call to <literal>unlock</literal> unnecessary&#8201;&#8212;&#8201;calling <literal>unlock</literal> on a key that is not currently locked will raise an
+exception.</simpara></important>
+<simpara>We can rewrite our <literal>add_friend</literal> example using the lock functions</simpara>
+<programlisting language="python" linenumbering="unnumbered">def add_friend(user_id, friend):
+    while True:
+        try:
+            result = c.lock("user_id-" + user_id)
+            break
+
+        except TemporaryFailError:
+            # Someone else has locked the key..
+            pass
+    try:
+        result.value['friends'][friend] = { 'added' : time.time() }
+        c.set("user_id-" + user_id, result.value, cas=result.cas)
+
+    except:
+        # We want to unlock if anything happens, rather than waiting
+        # for it to time out
+        c.unlock(result.key, result.cas)
+
+        # then, raise the exception
+        raise</programlisting>
+<tip>
+<title>When To Use Optimistic Or Pessimistic Locking</title>
+<simpara>Optimistic locking is more convenient and sometimes more familiar to users.
+Additionally, it does not require an explicit <emphasis>unlock</emphasis> phase.</simpara>
+<simpara>However, during a CAS mismatch, the full value is still sent to the server
+in the case of opportunistic locking. For highly contended resources this
+has impacts on network I/O, as the value must be sent multiple times before
+it is actually stored.</simpara>
+<simpara>Pessimistic locking does not retrieve its value unless the operation was
+successful, however.</simpara>
+</tip>
+</section>
+</section>
+<section id="_working_with_views">
+<title>Working With Views</title>
+<simpara>This section will provide a bit more information on how to work with views from
+the Python SDK. If you are new to views, it is recommended you
+read the server documentation &lt;link?&gt; which covers the topic itself more extensively.</simpara>
+<simpara>In order to use views, you must have already set up <emphasis>design documents</emphasis> containing
+one or more view queries you have defined. You can execute these queries from the
+Python SDK and retrieve their results.</simpara>
+<simpara>You can define views either via the Couchbase Server web interface, or through the
+Python SDK (see &lt;link&gt; design document management functions).</simpara>
+<simpara>Couchbase Server comes with two pre-defined sample buckets which can be installed
+from the "Sample Buckets" section in the "Settings" pane.</simpara>
+<simpara>The basic interface for views is such</simpara>
+<screen>client.query(design_name, view_name)</screen>
+<simpara>Which returns an iterable object which yields <literal>ViewRow</literal> objects.</simpara>
+<simpara><literal>ViewRow</literal> objects are simple namedtuples with the following fields:</simpara>
+<itemizedlist>
+<listitem>
+<simpara>
+<literal>vr.key</literal>
+</simpara>
+<simpara>The key emitted by the view&#8217;s <literal>map</literal> function (i.e. first argument to <literal>emit</literal></simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>vr.value</literal>
+</simpara>
+<simpara>The <emphasis>value</emphasis> emitted by the view&#8217;s <literal>map</literal> function (i.e. second argument to <literal>emit</literal>)</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>vr.id</literal>
+</simpara>
+<simpara>The document ID of this row. Can be passed to <literal>get</literal>, <literal>set</literal>, and such.</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>vr.doc</literal>
+</simpara>
+<simpara>A <literal>Result</literal> object containing the actual document, if the <literal>query</literal> method was passed
+the <literal>include_docs</literal> directive (see later).</simpara>
+</listitem>
+</itemizedlist>
+<simpara>The object returned by <literal>query</literal> is a class which defines an <literal>__iter__</literal> (and thus
+does not have a <literal>__len__</literal> or <literal>items()</literal> method). You can convert it to a list by
+using <emphasis>list comprehension</emphasis>:</simpara>
+<programlisting language="python" linenumbering="unnumbered">rows_as_list = [ c.query("beer", "brewery_beers") ]</programlisting>
+<simpara>You can also pass options to the <literal>query</literal> method. The list of available
+options are documented in the <literal>Query</literal> class in the API documentation.</simpara>
+<screen>from couchbase.views.params import Query
+
+client.query(design_name, view_name,
+             limit=3,
+             mapkey_range = ["abbaye", "abbaye" + Query.STRING_RANGE_END],
+             descending=True)</screen>
+<simpara>The <literal>include_docs</literal> directive may be used to fetch the documents along with each
+<literal>ViewRow</literal> object. Note that while it is possible to simply call <literal>c.get(vr.id)</literal>,
+the client handles the <literal>include_docs</literal> directive by actually performing a
+batched (<literal>get_multi</literal>) operation.</simpara>
+<simpara>You can also pass options for the server itself to handle. These options
+may be passed as either an encoded query string, a list of key-value
+parameters, or a <literal>Query</literal> object.</simpara>
+<formalpara><title>Using encoded query strings</title><para>
+<programlisting language="python" linenumbering="unnumbered">client.query("beer", "brewery_beers", query="limit=3&amp;skip=1&amp;stale=false")</programlisting>
+</para></formalpara>
+<simpara>Note that this is the most efficient way to pass options as they do not
+need to be re-encoded for each invocation.</simpara>
+<simpara>However, it is impossible for the SDK to verify the inputs and thus it is
+suggested you only use a raw string once your query has been refined and
+optimized.</simpara>
+<formalpara><title>Using key-value pairs</title><para>
+<programlisting language="python" linenumbering="unnumbered">client.query("beer", "brewery_beers", limit=3, skip=1, stale=False)</programlisting>
+</para></formalpara>
+<simpara>This allows simple and idiomatic construction of query options.</simpara>
+<formalpara><title>Using a Query object</title><para>
+<programlisting language="python" linenumbering="unnumbered">from couchbase.views.params import Query
+
+q = Query
+q.limit = 3
+q.skip = 1
+q.stale = False
+client.query("beer", "brewery_beers", query=q)</programlisting>
+</para></formalpara>
+<simpara>The <literal>Query</literal> object makes it simple to programmatically construct a Query, and
+provides the most maintainable option. When using key-value pairs, the SDK
+actually converts them to a <literal>Query</literal> object before processing.</simpara>
+<simpara><literal>Query</literal> objects also have named properties, making query construction easy
+to integrate if using an IDE with code completion.</simpara>
+<section id="_common_view_parameters">
+<title>Common View Parameters</title>
+<simpara>Here are some common parameters used for views. They are available either
+as keyword options to the <literal>query</literal> method, or as properties on the <literal>Query</literal>
+object</simpara>
+<section id="_server_parameters">
+<title>Server Parameters</title>
+<itemizedlist>
+<listitem>
+<simpara>
+<literal>mapkey_range = [ "start", "end" ]</literal>
+</simpara>
+<simpara>Set the start and end key range for keys emitted by the <literal>map</literal> function</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>startkey = "start"</literal>
+</simpara>
+<simpara>Set the start key</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>endkey = "end"</literal>
+</simpara>
+<simpara>Set the end key</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>descending = True</literal>
+</simpara>
+<simpara>Invert the default sort order</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>stale = False</literal>
+</simpara>
+<simpara>Possible values are <literal>True</literal>, <literal>False</literal>, or the string <literal>update_after</literal>.</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>limit = 10</literal>
+</simpara>
+<simpara>Limit the number of rows returned by the query</simpara>
+</listitem>
+</itemizedlist>
+</section>
+<section id="_literal_query_literal_method_options">
+<title><literal>query</literal> Method Options</title>
+<simpara>These are only available as options to the <literal>query</literal> method, and should
+not be used on the <literal>Query</literal> object.</simpara>
+<itemizedlist>
+<listitem>
+<simpara>
+<literal>include_docs = True</literal>
+</simpara>
+<simpara>Fetch corresponding documents along with each row</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>batchsize = 30</literal>
+</simpara>
+<simpara>Maximum amount of rows to fetch at once</simpara>
+</listitem>
+</itemizedlist>
+</section>
+</section>
+<section id="_pagination">
+<title>Pagination</title>
+<simpara>Often, view results can be large. By default the client reads all the results
+into memory and then returns an iterator over that result set. You can change
+this behavior by specifying the <literal>batchsize</literal> option to the <literal>query</literal> method. When
+used, this parameter indicates how many rows to fetch-at-a-time.</simpara>
+<simpara>Under the hood, the iterator object executes multiple queries returning at most
+<literal>batchsize</literal> rows each.</simpara>
+<simpara>Using <literal>batchsize</literal> does not have any impact on how the rows are returned and
+simply control how many internal requests are made to the server to fetch
+the results.</simpara>
+</section>
+</section>
+<section id="_design_document_management">
+<title>Design Document Management</title>
+<simpara>The Python Couchbase SDK provides means by which you can manage design
+documents; including all phases of design document development. You can</simpara>
+<itemizedlist>
+<listitem>
+<simpara>
+Create a development design
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+Publish a development design to a production design
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+Retrieve a design document
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+Delete a design document
+</simpara>
+</listitem>
+</itemizedlist>
+<simpara>Note that all design creation methods take a <literal>syncwait</literal> argument, which is an
+optional amount of time to wait for the operation to be complete. By default
+the server (and thus the SDK) only <emphasis role="strong">schedule</emphasis> a design document operation.
+This means that if you try to use the view right after you created it, you
+may get an error as the operation has not yet completed. Using the <literal>syncwait</literal>
+parameter will poll for this many seconds - and either return successfully or
+raise an exception.</simpara>
+<simpara>An additional argument which may be provided is the <literal>use_devmode</literal> parameter. If
+on, the name of the design will be prepended with <literal>dev_</literal> (if it does not already
+start with it).</simpara>
+<simpara>All these operations return an <literal>HttpResult</literal> object which contains the decoded
+JSON payload in its <literal>value</literal> property.</simpara>
+<itemizedlist>
+<listitem>
+<simpara>
+<literal>c.design_create(name, design, use_devmode=True, syncwait=0)</literal>
+</simpara>
+<simpara>Creates a new design document. <literal>name</literal> is the name of the design document (e.g.
+<literal>"beer"</literal>). <literal>design</literal> is either a Python dictionary representing the structure
+of the design or a valid string (i.e. encoded JSON) to be passed to the server.</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>c.design_get(name, use_devmode=True)</literal>
+</simpara>
+<simpara>Retrieves the design document.</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>c.design_publish(name, syncwait=0)</literal>
+</simpara>
+<simpara>Converts a development-mode view into a production mode view. This is equivalent
+to pressing the <emphasis role="strong">Publish</emphasis> button on the web UI.</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>c.design_delete(name, use_devmode=True)</literal>
+</simpara>
+<simpara>Delete a design document</simpara>
+</listitem>
+</itemizedlist>
+</section>
+</chapter>

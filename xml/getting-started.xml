@@ -1,0 +1,546 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<?asciidoc-toc?>
+<?asciidoc-numbered?>
+<chapter id="_getting_started">
+<title>Getting Started</title>
+<section id="_installing_the_couchbase_client_libraries">
+<title>Installing the Couchbase Client Libraries</title>
+<simpara>Before you start, you should have Python version 2.6 or later.
+Note that Python versions 3.x are supported as well.</simpara>
+<simpara>To check your Python version, type the following command:</simpara>
+<literallayout class="monospaced">shell&gt; python -V
+Python 2.6.6</literallayout>
+<simpara>Another dependency required is the C client library, <literal>libcouchbase</literal>. Consult
+the documentation [LINK_TO_LIBCOUCHBASE_INSTALL] here.</simpara>
+<simpara>If you are using Windows, note that <literal>libcouchbase</literal> is bundled in the provided
+Windows installer.</simpara>
+<simpara>Once libcouchbase is installed, you may proceed to install the <literal>couchbase</literal>
+python packate. This is normally done via the <literal>pip</literal> tool:</simpara>
+<literallayout class="monospaced">pip install couchbase --quiet</literallayout>
+<simpara>This should not output anything if successful.</simpara>
+<simpara>You can try to load your installation by trying to load the module from the
+commandline.</simpara>
+<literallayout class="monospaced">python -c 'import couchbase'</literallayout>
+<simpara>If successful, should exit and not output anything</simpara>
+</section>
+<section id="_hello_couchbase">
+<title>Hello Couchbase</title>
+<simpara>To follow the tradition of programming tutorials, we&#8217;ll start with
+"Hello Couchbase". Note that this example expects you to have installed
+the "beer-sample" bucket (which is provided with the default install).</simpara>
+<formalpara><title>hello-couchbase.py</title><para>
+<programlisting language="python" linenumbering="unnumbered">from couchbase import Couchbase
+from couchbase.exceptions import CouchbaseError
+
+c = Couchbase.connect(bucket='beer-sample', host='localhost')
+
+try:
+    beer = c.get("aass_brewery-juleol")
+
+except CouchbaseError as e:
+    print "Couldn't retrieve value for key", e
+    # Rethrow the exception, making the application exit
+    raise
+
+doc = beer.value
+
+# Because Python 2.x will complain if an ASCII format string is used
+# with Unicode format values, we make the format string unicode as
+# well.
+
+print unicode("{name}, ABV: {abv}").format(name=doc['name'], abv=doc['abv'])
+
+doc['comment'] = "Random beer from Norway"
+
+try:
+    result = c.replace("aass_brewery-juleol", doc)
+    print result
+
+except CouchbaseError as e:
+    print "Couldn't replace key"
+    raise</programlisting>
+</para></formalpara>
+<simpara>While this code should be simple, we&#8217;ll explain each step in greater detail:</simpara>
+<itemizedlist>
+<listitem>
+<simpara>
+<emphasis role="strong">Connecting</emphasis>
+</simpara>
+<simpara>The <literal>Couchbase.connect</literal> class method constructs a new
+<literal>couchbase.connection.Connection</literal> object. This object represents a connection
+to a single bucket within the cluster. Arguments passed to <literal>connect</literal> are passed
+to the constructor (see API documentation on the <literal>Connection</literal> object for more
+details and options).</simpara>
+<simpara>A bucket represents a logical namespace for a key. All keys must be unique within
+a single bucket, but multiple buckets can have keys with the same names (and they
+will not conflict). A new connection object must be created for each bucket you
+wish to interact with in your application. Here we are creating one connection
+to the <literal>beer-sample</literal> bucket.</simpara>
+<simpara>The constructor is passed the bucket name (which is <literal>beer-sample</literal>), and a node
+on the cluster to connect to. Note that you can pass any node that is a member
+of the cluster. In this case, I&#8217;m using my local cluster instance.</simpara>
+</listitem>
+<listitem>
+<simpara>
+<emphasis role="strong">Retrieving Data</emphasis>
+</simpara>
+<simpara>The <literal>get</literal> method retrieves the value for the key requested. If the key exists,
+a <literal>Result</literal> object is returned containing the value of the key as well as
+additional metadata. To get the actual value of the object, you can access the
+<literal>Result</literal> object&#8217;s <literal>value</literal> property.</simpara>
+<simpara>Note that if the key does not exist on the server, an exception of type
+<literal>CouchbaseError</literal> is thrown. This exception object can be caught and examined
+or printed to see more details about why the operation failed. See the API
+documentation for more details.</simpara>
+<simpara>Note that we treat the <literal>value</literal> as a <literal>dict</literal> object. As a documented oriented
+database, values stored to the server are considered to be JSON by default,
+and when retrieve from the server are interpreted to be JSON (and unserialized
+into a Python dict). It is possible to use other formats than the default JSON,
+however. The <literal>set</literal> methods accept a <literal>format</literal> keyword argument which indicates
+the conversion type to be used. The default is <literal>couchbase.FMT_JSON</literal>, but you
+may also use <literal>couchbase.FMT_BYTES</literal>, <literal>couchbase.FMT_UTF8</literal>, or
+<literal>couchbase.FMT_PICKLE</literal> instead. If none of these are sufficient, you may even
+write your own custom <literal>Transcoder</literal> object to handle conversion on your own.</simpara>
+</listitem>
+<listitem>
+<simpara>
+<emphasis role="strong">Storing Data</emphasis>
+</simpara>
+<simpara>To store documents in the server, you can use one of the <literal>set</literal> family of
+methods. Here we use <literal>replace</literal> which enforces the constraint that a previous
+value of the document must already exist. This can be thought of as an <emphasis>update</emphasis>
+operation in terms of <emphasis>C.R.U.D.</emphasis> (Create, Read, Update, Delete).</simpara>
+<simpara>The storage methods also return a <literal>Result</literal> object containing metadata about the
+value stored.</simpara>
+</listitem>
+</itemizedlist>
+<simpara>Now we&#8217;re ready to run our first Couchbase Program:</simpara>
+<literallayout class="monospaced">shell&gt; python hello-couchbase.py</literallayout>
+<literallayout class="monospaced">Jule&#248;l, ABV: 5.9
+OperationResult&lt;RC=0x0, Key=aass_brewery-juleol, CAS=0x428e4317cfe60000&gt;</literallayout>
+<simpara>The first line outputs the <emphasis>name</emphasis> field of the document, and the second line
+outputs the <literal>Result</literal> object of the replace operation.</simpara>
+</section>
+<section id="_working_with_documents">
+<title>Working With Documents</title>
+<simpara>A document in Couchbase server consists of a <emphasis>key</emphasis>, <emphasis>value</emphasis>, and <emphasis>metadata</emphasis>.
+We will explain the following briefly</simpara>
+<itemizedlist>
+<listitem>
+<simpara>
+<emphasis role="strong">Key</emphasis>
+</simpara>
+<simpara>A key is a unique identifier for your data. Each document must have its unique
+key. The key structure can be any valid <literal>utf-8</literal> string.</simpara>
+</listitem>
+<listitem>
+<simpara>
+<emphasis role="strong">Value</emphasis>
+</simpara>
+<simpara>The value is your own application data which exists under the key. The format
+of the value can be anything. By default, only JSON-serializable object are
+supported (that is, Python <literal>str</literal>, <literal>unicode</literal>, <literal>dict</literal>, <literal>list</literal>, <literal>tuple</literal>,
+<literal>int</literal>, <literal>long</literal>, <literal>float</literal>, <literal>bool</literal>, and <literal>None</literal> types) - in short, anything that the
+standard <literal>json.dumps</literal> will accept.
+The reason JSON is the default format is for the ability to later query the
+database based on value contents, as will be explained later.</simpara>
+<simpara>Note that it is possible to also store arbitrary Python objects using the
+<literal>FMT_PICKLE</literal> value for the <literal>format</literal> option.</simpara>
+</listitem>
+</itemizedlist>
+<section id="_storing_simple_documents">
+<title>Storing Simple Documents</title>
+<simpara>This section provides a bit more insight in how to store documents. This is a
+prerequisite to demonstrate how to retrieve documents (as there must be
+something to retrieve)</simpara>
+<note><simpara>There are additional storage methods beyond those described here,
+which are covered in the Advanced section.
+These include manipulating numeric
+counters, setting expiration times for documents, and
+appending/prepending to existing values.</simpara></note>
+<simpara>The <literal>Connection</literal> object has three different store operations which conform to
+the <emphasis>CRUD</emphasis> model:</simpara>
+<itemizedlist>
+<listitem>
+<simpara>
+<literal>set(key, value)</literal>
+</simpara>
+<simpara>This stores the document <literal>value</literal> under the key <literal>key</literal>. If the key did not
+previously exist, it is created. If the key already exists, its existing
+value is overwritten with the new contents of <literal>value</literal>.</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>add(key, value)</literal>
+</simpara>
+<simpara>This stores the document <literal>value</literal> under the key <literal>key</literal>, but only if <literal>key</literal>
+does <emphasis>not already exist</emphasis>. If <literal>key</literal> already exists, an exception is thrown.</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>replace(key, value)</literal>
+</simpara>
+<simpara>This is the inverse of <literal>add</literal>. This will set the contents of <literal>key</literal> to
+<literal>value</literal>, but only if the <emphasis>key already exists</emphasis>. If the key does not
+already exist, an exception is thrown.</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>delete(key)</literal>
+</simpara>
+<simpara>Deletes the key <literal>key</literal> from the bucket. Future attempts to access this key
+via <literal>get</literal> will raise an exception until something is stored again for this
+key using one of the <literal>set</literal> methods.</simpara>
+</listitem>
+</itemizedlist>
+<example>
+<title>CRUD Example</title>
+<simpara>The following code demonstrates the four functions above</simpara>
+<programlisting language="python" linenumbering="unnumbered">from couchbase import Couchbase
+from couchbase.exceptions import CouchbaseError
+
+key = "demo_key"
+value = "demo_value"
+
+# We use the 'default' bucket.
+c = Couchbase.connect(bucket='default', host='localhost')
+
+print "Setting key {0} with value {1}".format(key, value)
+result = c.set(key, value)
+print "...", result
+
+print ""
+print "Getting value for key {0}".format(key)
+result = c.get(key)
+print "...", result
+
+print ""
+print "Creating new key {0} with value 'new_value'".format(key)
+print "This will fail as '{0}' already exists".format(key)
+try:
+    c.add(key, "another value")
+except CouchbaseError as e:
+    print e
+
+print "Replacing existing key {0} with new value".format(key)
+result = c.replace(key, "new value")
+print "...", "result"
+
+print ""
+print "Getting new value for key {0}".format(key)
+result = c.get(key)
+print "...", result
+
+print ""
+print "Deleting key", key
+result = c.delete(key)
+print "...", result
+
+print ""
+print "Getting value for key {0}. This will fail as it has been deleted".format(key)
+try:
+    c.get(key)
+except CouchbaseError as e:
+    print e
+
+print ""
+print "Creating new key {0} with value 'added_value'".format(key)
+result = c.add(key, "added_value")
+print "...", result
+
+print "Getting the new value"
+result = c.get(key)
+print "...", result</programlisting>
+<simpara>Will output</simpara>
+<screen>Setting key demo_key with value demo_value
+... OperationResult&lt;RC=0x0, Key=demo_key, CAS=0x3222e0f096e80000&gt;
+
+Getting value for key demo_key
+... ValueResult&lt;RC=0x0, Key=demo_key, Value=u'demo_value', CAS=0x3222e0f096e80000, Flags=0x0&gt;
+
+Creating new key demo_key with value 'new_value'
+This will fail as 'demo_key' already exists
+&lt;Key=u'demo_key', RC=0xC[Key exists (with a different CAS value)], Operational Error, Results=1, C Source=(src/multiresult.c,147)&gt;
+Replacing existing key demo_key with new value
+... result
+
+Getting new value for key demo_key
+... ValueResult&lt;RC=0x0, Key=demo_key, Value=u'new value', CAS=0xbff8f2f096e80000, Flags=0x0&gt;
+
+Deleting key demo_key
+... OperationResult&lt;RC=0x0, Key=demo_key, CAS=0xc0f8f2f096e80000&gt;
+
+Getting value for key demo_key. This will fail as it has been deleted
+&lt;Key=u'demo_key', RC=0xD[No such key], Operational Error, Results=1, C Source=(src/multiresult.c,147)&gt;
+
+Creating new key demo_key with value 'added_value'
+... OperationResult&lt;RC=0x0, Key=demo_key, CAS=0x366a05f196e80000&gt;
+Getting the new value
+... ValueResult&lt;RC=0x0, Key=demo_key, Value=u'added_value', CAS=0x366a05f196e80000, Flags=0x0&gt;</screen>
+</example>
+</section>
+<section id="_reading_documents">
+<title>Reading Documents</title>
+<section id="_getting_documents_by_key">
+<title>Getting Documents By Key</title>
+<simpara>Couchbase allows two ways to fetch your documents: You can retrieve a
+document by its <emphasis>key</emphasis>, or you can retrieve a set of documents which
+match some constraint using Views. Since views are more complex, we&#8217;ll
+first demonstrate getting documents by their keys.</simpara>
+<simpara>To get a single document, simply supply the key as the first argument to
+the <literal>get</literal> method. It will return a <literal>Result</literal> object on success which can
+then be used to extract the value.</simpara>
+<formalpara><title>Getting A Single Document</title><para>
+<programlisting language="python" linenumbering="unnumbered">client.store("my list", [])
+result = client.get("my list")
+doc = result.value</programlisting>
+</para></formalpara>
+<simpara>To get multiple documents, you may use the more efficient <literal>get_multi</literal>
+method. It is passed an iterable sequence of keys, and returns a
+dict-like object (this is actually a dict subclass called <literal>MultiResult</literal>)
+with the keys passed to <literal>get_multi</literal> as keys, and the
+values being a <literal>Result</literal> object for the result of each key.</simpara>
+<formalpara><title>Getting Multiple Documents</title><para>
+<programlisting language="python" linenumbering="unnumbered">client.set_multi({
+    'sheep_counting' : ['first sheep', 'second sheep'],
+    'famous_sheep' : {'sherry lewis' : 'Lamb Chops'}
+})
+
+keys = ('sheep_counting', 'famous_sheep')
+results = client.get_multi(keys)
+for key, result in results.items():
+    doc = result.value</programlisting>
+</para></formalpara>
+<tip>
+<title>Error Handling</title>
+<simpara>Note that if a document does not exist, a <literal>couchbase.exceptions.NotFoundError</literal>
+(which is a subclass of <literal>couchbase.exceptions.CouchbaseError</literal> is thrown).</simpara>
+<simpara>You can change this behavior by using the <literal>quiet</literal> keyword parameter and setting
+it to true (to suppress exceptions for a specific <literal>get</literal> call) or by setting the
+<literal>Connection.quiet</literal> property on the <literal>Connection</literal> object (which will supress
+exceptions on <literal>get</literal> for subsequent calls).</simpara>
+<simpara>When using <literal>quiet</literal>, you can still determine if a key was retrieved successfuly
+by examining the <literal>success</literal> property of the value object</simpara>
+<programlisting language="python" linenumbering="unnumbered">result = client.get("non-exist-key", quiet=True)
+if result.success:
+    print "Got document OK"
+else:
+    print ("Couldn't retrieve document. "
+           "Result was received with code"), result.rc</programlisting>
+<simpara>The <literal>rc</literal> property of the <literal>Result</literal> object contains the error code received
+on failure (on success, its value is <literal>0</literal>). You can also obtain the exception
+class which would have been thrown by using</simpara>
+<literallayout class="monospaced">`CouchbaseError.rc_to_exctype(result.rc)`</literallayout>
+<simpara>This class method is passed an error code and produces the appropriate
+exception class.</simpara>
+<simpara>Note that on <literal>get_multi</literal> with the quiet option enabled, you can immediately
+determine if all the keys were fetched successfully or not by examining the
+returned <literal>MultiResult</literal> 's <literal>all_ok</literal> property.</simpara>
+<programlisting language="python" linenumbering="unnumbered">results = client.get_multi(("i exist", "but i don't"), quiet=True)
+if not results.all_ok:
+    print "Couldn't get all keys"</programlisting>
+</tip>
+</section>
+<section id="_getting_documents_by_views">
+<title>Getting Documents by Views</title>
+<simpara>In addition to fetching documents by keys, you may also employ <emphasis>Views</emphasis> to retrieve
+information using secondary indexes. This guide gets you started on how to use
+them from the Python SDK. If you want to learn more about views, see the &lt;link?&gt;
+server manual.</simpara>
+<simpara>First, create your view definition using the web UI (though you may also do
+this directly from the Python SDK, as will be shown later).</simpara>
+<simpara>You can then query the view results by calling the <literal>query</literal> method on the
+<literal>Connection</literal> object. Simply pass it the design and view name.</simpara>
+<programlisting language="python" linenumbering="unnumbered">view_results = client.query("beer", "brewery_beers")
+for result in view_results:
+    print "Mapped key: %r" % (result.key,)
+    print "Emitted value: %r" % (result.value,)
+    print "Document ID: %s" % (result.docid,)</programlisting>
+<simpara>The <literal>query</literal> method returns a <literal>couchbase.views.iterator.View</literal> object which
+is an iterator. You may simply iterate over it to retrieve the results
+for the query. Each object yielded is a <literal>ViewRow</literal> which is a simple object
+containing the key, value, document ID, and optionally the document itself
+for each of the results returned by the view.</simpara>
+<simpara>In addition to passing the design and view name, the <literal>query</literal> method accepts
+additional keyword arguments which control the behavior of the results
+returned. You may thus use it like so:</simpara>
+<literallayout class="monospaced">results = client.query("beer", "brewery_beers", opt1=value1, opt2=value2, ...)</literallayout>
+<itemizedlist>
+<listitem>
+<simpara>
+<literal>include_docs</literal>
+</simpara>
+<simpara>This boolean parameter indicates whether the corresponding document should be
+retrieved for each row fetched. If this is true, the <literal>doc</literal> property of the
+<literal>ViewRow</literal> object yielded by the iterator returned by <literal>query</literal> will contain
+a <literal>Result</literal> object containing the document for the key.</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>reduce</literal>
+</simpara>
+<simpara>This boolean parameter indicates whether the server should also pass the results
+to the view&#8217;s <literal>reduce</literal> function. An exception is raised if the view does not have
+a <literal>reduce</literal> method defined.</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>limit</literal>
+</simpara>
+<simpara>This numeric parameter indicates the maximum amount of results to fetch from
+the query. This is handy if your query can produce a lot of results</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>descending</literal>
+</simpara>
+<simpara>This boolean parameter indicates that the results should be returned in
+reversed (descending) order.</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>stale</literal>
+</simpara>
+<simpara>This boolean parameter can be used to control the tradeoff between performance
+and freshness of data.</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>debug</literal>
+</simpara>
+<simpara>This boolean parameter will also fetch low-level debugging information from the
+view engine.</simpara>
+</listitem>
+<listitem>
+<simpara>
+<literal>batchsize</literal>
+</simpara>
+<simpara>This numeric parameter indicates how many rows to fetch during a single request
+to the server. This can be handy if you wish to iterate over all the results,
+but not load the entire resultset in memory.</simpara>
+</listitem>
+</itemizedlist>
+<simpara>Here&#8217;s a more extensive example</simpara>
+<programlisting language="python" linenumbering="unnumbered">results = client.query("beer", "brewery_beers",
+                       include_docs=True, limit=5)
+for result in results:
+    print "key is %r" % (result.key)
+    # We'd print the document too, but this can be rather large</programlisting>
+</section>
+</section>
+<section id="_encoding_and_serialization">
+<title>Encoding and Serialization</title>
+<simpara>The default encoding format for the Python SDK is JSON. This means you can
+pass any valid object which is accepted by the standard <literal>json.dumps</literal>
+library function and you will receive it back when you retrieve it.</simpara>
+<programlisting language="python" linenumbering="unnumbered"># -*- coding: utf-8 -*-
+
+import pprint
+from couchbase import Couchbase
+
+client = Couchbase.connect(bucket='default', host='localhost')
+value = {
+    "this is a" : "dictionary",
+    "and this is a list" : ["with", "some", "elements"],
+    "and this is a tuple" : ("with", "more", "elements"),
+    "you can also use floats" : 3.14,
+    "integers" : 42,
+    "strings" : "hello",
+    "unicode" : "&#1513;&#1500;&#1493;&#1501;!",
+    "blobs" : "\x00",
+    "or a None" : None
+}
+
+client.set("a_key", value)
+result = client.get("a_key")
+pprint.pprint(result.value)
+print result.value['unicode']</programlisting>
+<simpara>Which then prints</simpara>
+<screen>{u'and this is a list': [u'with', u'some', u'elements'],
+ u'and this is a tuple': [u'with', u'more', u'elements'],
+ u'blobs': u'\x00',
+ u'integers': 42,
+ u'or a None': None,
+ u'strings': u'hello',
+ u'this is a': u'dictionary',
+ u'unicode': u'\u05e9\u05dc\u05d5\u05dd!',
+ u'you can also use floats': 3.14}
+&#1513;&#1500;&#1493;&#1501;!</screen>
+<simpara>If you navigate to the document browser for the bucket in the Web UI
+(go to <literal>localhost:8091</literal> in your browser, type in your administrative
+credentials, go over to the <emphasis>Data Buckets</emphasis> pane, and click on the <emphasis>Documents</emphasis>
+button for the <literal>default</literal> bucket. Then in the text input box, type in the ID
+for the document you just created (in this case, it&#8217;s <literal>a_key</literal>)), you&#8217;ll see
+it show up and recognized by the document browser). This means it can now
+be indexed and queried against using views.</simpara>
+<simpara><inlinemediaobject>
+  <imageobject>
+  <imagedata fileref="images/json-document.png"/>
+  </imageobject>
+  <textobject><phrase>As seen by document browser</phrase></textobject>
+</inlinemediaobject></simpara>
+<section id="_other_formats">
+<title>Other Formats</title>
+<simpara>While JSON is the default format, it might be useful to utilize other formats.
+For example, if you wish to store complex custom Python objects and classes
+and don&#8217;t require that they be indexed with views, you can use the <literal>pickle</literal>
+serialization format. This allows you to store types that will not be accepted
+by JSON:</simpara>
+<programlisting language="python" linenumbering="unnumbered">import pprint
+
+from couchbase import Couchbase, FMT_PICKLE
+
+c = Couchbase.connect(bucket='default')
+c.set("a_python_object", object(), format=FMT_PICKLE)
+c.set("a_python_set", set([1,2,3]), format=FMT_PICKLE)
+
+pprint.pprint(c.get("a_python_object").value)
+pprint.pprint(c.get("a_python_set").value)</programlisting>
+<simpara>Outputs:</simpara>
+<literallayout class="monospaced">&lt;object object at 0x7fa7d0ad80e0&gt;
+set([1, 2, 3])</literallayout>
+<simpara>You can also store arbitrary strings of bytes by using <literal>FMT_BYTES</literal></simpara>
+<note><simpara>In Python 2 (2.6 and above) <literal>bytes</literal> and <literal>str</literal> are the same type; however
+in Python 3, a <literal>str</literal> is a string with an encoding (i.e. Python 2&#8217;s <literal>unicode</literal>)
+while <literal>bytes</literal> is a sequence of bytes which must be explicitly converted in
+order to be used with text operations.</simpara></note>
+<programlisting language="python" linenumbering="unnumbered">import pprint
+
+from couchbase import Couchbase, FMT_BYTES
+
+c = Couchbase.connect(bucket='default')
+c.set("blob", b"\x01\x02\x03\x04", format=FMT_BYTES)
+pprint.pprint(c.get("blob").value)</programlisting>
+<simpara>Outputs</simpara>
+<screen>b'\x01\x02\x03\x04'</screen>
+<simpara>Or use <literal>FMT_UTF8</literal> to store a <literal>unicode</literal> object represented as <emphasis>UTF-8</emphasis></simpara>
+<note><simpara>While JSON is also capable of storing strings and Unicode, the JSON specification
+mandates that all strings begin and end with a quote (<literal>"</literal>). This uses up needless
+space and costs extra processing power in "decoding" and "encoding" your JSON
+string. Therefore you can save on performance by using <literal>FMT_UTF8</literal> for simple
+strings</simpara></note>
+<note><simpara>It is possible to encode your data in other encodings
+other than <emphasis>UTF-8</emphasis>. However since the view engine operates using <emphasis>UTF-8</emphasis>, we
+select this as the default. If you need a different encoding, consider using
+the <literal>Transcoder</literal> interface.</simpara></note>
+<programlisting language="python" linenumbering="unnumbered">from couchbase import Couchbase, FMT_UTF8
+
+c = Couchbase.connect(bucket='default')
+c.set("EXCALIBUR", u"\u03EE", format=FMT_UTF8)
+print c.get("EXCALIBUR")</programlisting>
+<simpara>Outputs</simpara>
+<screen>&#1006;</screen>
+<note>
+<title>Setting The Default Format</title>
+<simpara>You can set the default format for the value type you use most by
+setting the <literal>default_format</literal> property on the connection object,
+either during construction or afterwards:</simpara>
+<programlisting language="python" linenumbering="unnumbered">c = Couchbase.connect(bucket='default', default_format=FMT_UTF8)</programlisting>
+<simpara>Or</simpara>
+<programlisting language="python" linenumbering="unnumbered">c.default_format = FMT_PICKLE</programlisting>
+</note>
+</section>
+</section>
+</section>
+</chapter>

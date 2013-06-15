@@ -1,0 +1,389 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<?asciidoc-toc?>
+<?asciidoc-numbered?>
+<chapter id="_advanced_usage">
+<title>Advanced Usage</title>
+<simpara>This covers advanced topics and builds on the <emphasis>Using the APIs</emphasis> section.</simpara>
+<section id="_batched_bulk_operations">
+<title>Batched (Bulk) Operations</title>
+<simpara>Most API functions have both single and multi-key (batched) variants.
+The batched variant will be of the same name as the single-key variant,
+but have its method name appended with <literal>_multi</literal>.</simpara>
+<simpara>The batched operations are significantly quicker and more efficient, especially
+when dealing with many small values, as they allow pipelining of requests and
+responses, saving on network latency.</simpara>
+<simpara>Batched operations tend to accept an iterable of keys (or a dict of keys,
+depending on the method) and return a dictionary of the following format</simpara>
+<programlisting language="python" linenumbering="unnumbered">c.foo_multi(["key1", "key2", "key3"])
+
+{
+    "key1" : FooResult(...),
+    "key2" : FooResult(...),
+    "key3" : FooResult(...)
+}</programlisting>
+<section id="_exceptions_in_batched_operations">
+<title>Exceptions in Batched Operations</title>
+<simpara>Sometimes a single key in a batched operation may fail, resulting in an
+exception. It is still possible to retrieve the full result set of the
+failed batched operation by using the <literal>all_results</literal> property of the
+thrown exception (assuming it is of type <literal>CouchbaseError</literal>)</simpara>
+<programlisting language="python" linenumbering="unnumbered">c.set("foo", "foo value")
+
+try:
+    c.add_multi({
+        "foo" : "foo value",
+        "bar" : "bar value",
+        "baz" : "baz value"
+    })
+except CouchbaseError as exc:
+    for k, res in exc.all_results.items():
+        if res.success:
+            # Handle successful operation
+        else:
+            print "Key {0} failed with error code {1}".format(k, res.rc)
+            print "Exception {0} would have been thrown".format(
+                CouchbaseError.rc_to_exctype(res.rc))</programlisting>
+</section>
+</section>
+<section id="_using_with_and_without_threads">
+<title>Using With and Without Threads</title>
+<simpara>The <literal>Connection</literal> object by default is thread safe. In order to do so, it uses
+internal locks and explicitly locks and unlocks the Python <emphasis>GIL</emphasis> to ensure
+that a fatal error is not thrown by the application.</simpara>
+<simpara>The locking and unlocking has a slight performance impact, with the guarantee
+that things will not crash if an application is using threads.</simpara>
+<simpara>If you are not using threads in your application (at all), you may pass the
+<literal>unlock_gil=False</literal> option to the <literal>connect</literal> method like so:</simpara>
+<programlisting language="python" linenumbering="unnumbered">c = Couchbase.connect(unlock_gil=False, bucket='default')</programlisting>
+<simpara>This will disable all locking/unlocking (not to be confused with the <literal>lock</literal>
+and <literal>unlock</literal> features which operate on keys in the server) functionality.
+If your application does use threads, those threads will be <emphasis role="strong">blocked</emphasis> while
+the <literal>Connection</literal> object waits for the server to respond.</simpara>
+<simpara>In addition to locking and unlocking the <emphasis>GIL</emphasis>, upon entry to each function
+the <literal>Connection</literal> object locks itself (using the equivalent of <literal>Lock.acquire</literal>)
+and unlocks itself once it leaves. This is to ensure that multiple threads
+are not using the same <literal>Connection</literal> object at once; and thus access is
+serialized.</simpara>
+<simpara>You may disable this behavior with the following two options:</simpara>
+<itemizedlist>
+<listitem>
+<simpara>
+Don&#8217;t lock at all
+</simpara>
+<simpara>The <literal>Connection</literal> object is not locked at all. If your application will try to
+use the <literal>Connection</literal> object from multiple threads at once, strange errors may
+happen and your program will eventually core dump.</simpara>
+<simpara>If you&#8217;re sure you&#8217;re not going to use it from more than one thread, you can
+use the <literal>lockmode = LOCKMODE_NONE</literal> in the constructor</simpara>
+<programlisting language="python" linenumbering="unnumbered">from couchbase import Couchbase, LOCKMODE_NONE
+c = Couchbase.connect(bucket='default', lockmode=LOCKMODE_NONE)</programlisting>
+</listitem>
+<listitem>
+<simpara>
+Throw an exception if concurrent access is detected
+</simpara>
+<simpara>This is helpful for debugging an application where multiple threads <emphasis role="strong">should</emphasis>
+not be accessing the <literal>Connection</literal> object (but for some reason, they are). You
+can use the <literal>lockmode = LOCKMODE_EXC</literal> for this</simpara>
+<programlisting language="python" linenumbering="unnumbered">from couchbase import Couchbase, LOCKMODE_EXC
+c = Couchbase.connect(bucket='default', lockmode=LOCKMODE_EXC)</programlisting>
+</listitem>
+</itemizedlist>
+<simpara>The default lockmode is <literal>couchbase.LOCKMODE_WAIT</literal> which waits silently if
+concurrent access is detected</simpara>
+</section>
+<section id="_custom_encodings_conversions">
+<title>Custom Encodings/Conversions</title>
+<simpara>While the Python SDK offers numerous options for converting your data to be
+suitable for storing on the server, it may sometimes not be enough. For this,
+the <literal>Transcoder</literal> interface is used.</simpara>
+<simpara>The <literal>Transcoder</literal> interface allows you to define an object which is called
+with each value together with the <literal>format</literal> arguments passed to it.</simpara>
+<section id="_formats_and_flags">
+<title>Formats and Flags</title>
+<simpara>The value passed for the <literal>format</literal> parameter is actually a flag which is stored
+on the server. Each key has a small amount of metadata which is stored with it
+along on the server. The Python SDK stores the <literal>format</literal> value to the metadata
+when you store a value (using <literal>set</literal>) and then reads it when retrieving the
+value (using <literal>get</literal>). If the flag is equal to <literal>FMT_JSON</literal> then it attempts to
+decode it as JSON; if the flag is equal to <literal>FMT_PICKLE</literal> then it attempts to
+decode it as Pickle, and so on.</simpara>
+</section>
+<section id="_custom_literal_transcoder_literal_objects">
+<title>Custom <literal>Transcoder</literal> Objects</title>
+<simpara>You can write a custom transcoder which will allow <emphasis>Zlib</emphasis> compression;
+here&#8217;s a snippet</simpara>
+<programlisting language="python" linenumbering="unnumbered">import zlib
+
+from couchbase.transcoder import Transcoder
+from couchbase import FMT_MASK
+
+# We'll define our own flag.
+FMT_ZLIB = (FMT_MASK &lt;&lt; 1) &amp; ~FMT_MASK
+
+class ZlibTranscoder(Transcoder):
+    def encode_value(self, value, format):
+        converted, flags = super(ZlibTranscoder, self).encode_value(value, format &amp; FMT_MASK)
+        if (format &amp; FMT_ZLIB):
+            flags |= FMT_ZLIB
+            converted = zlib.compress(converted)
+        return (converted, flags)
+
+    def decode_value(self, value, flags):
+        if (format &amp; FMT_ZLIB):
+            value = zlib.decompress(value)
+            format &amp;= FMT_MASK
+        return super(ZlibTranscoder, self).decode_value(value, flags)</programlisting>
+<simpara>In the above example, the <literal>ZlibTranscoder</literal> class is defined as a subclass of the
+provided <literal>couchbase.transcoder.Transcoder</literal> class. The latter is a wrapper class
+which defaults to use the default conversion methods in the SDK (note that the
+library does not use any <literal>Transcoder</literal> object by default, but the provided
+one wraps the built-in converters.</simpara>
+<simpara>For <literal>encode_value</literal> we are passed the user-specified value (which is any Python
+object) and a <literal>format</literal> value, which too can be any valid Python object (though
+the default transcoder only accepts the <literal>FMT_JSON</literal>, <literal>FMT_UTF8</literal>, <literal>FMT_BYTES</literal>
+and <literal>FMT_PICKLE</literal> values.</simpara>
+<simpara>We define an additional format flag called <literal>FMT_ZLIB</literal>. We make this one higher
+than <literal>FMT_MASK</literal> (which is the bitmask for the built-in formatting flags).</simpara>
+<simpara>In <literal>encode_value</literal> we first call our parent&#8217;s <literal>encode_value</literal> (only passing the
+relevant bits of the <literal>format</literal>) and receive the converted value and output flags
+back (in reality, output flags will typically be the same as the format flags.</simpara>
+<simpara>Then we convert the already-converted value and compress it as <emphasis>zlib</emphasis>. We then
+AND the flag with our <literal>FMT_ZLIB</literal> bit, and return it. The value and flag returned
+from the <literal>encode_value</literal> method are stored as is on the server.</simpara>
+<simpara>We then do the converse when reading data back from the server in <literal>decode_value</literal>.
+In this method we are passed the value as it is stored on the server, along with
+the numeric flags as they are stored in the key&#8217;s metadata. We check to see
+first whether there is any special <literal>FMT_ZLIB</literal> flag applied, and if so,
+decompress the data and strip those bits from the flag. Then we dispatch it to
+the default <literal>decode_value</literal> to handle any further encapulation formats.</simpara>
+<simpara>This may all be used like so from Python</simpara>
+<programlisting language="python" linenumbering="unnumbered"># assuming the ZlibTrancoder class is defined above
+
+c = Couchbase.connect(transcoder=ZlibTranscoder(), bucket='default')
+c.set("foo", "long value" * 1000, format=FMT_BYTES|FMT_ZLIB)
+c.get("foo")</programlisting>
+</section>
+<section id="_bypassing_conversion">
+<title>Bypassing Conversion</title>
+<simpara>If you are having difficulties with reading some value from the server
+(possibly because it was stored using a different client with different
+flag semantics) then you may disable conversion (when retrieving) entirely
+by using the <literal>Connection</literal> object&#8217;s <literal>data_passthrough</literal> property. This is a
+boolean, and when enabled does not deconvert the value (i.e. it does not
+call <literal>decode_value</literal> but simply interprets the value as a sequence of bytes
+and returns them as part of the <literal>Result</literal> object&#8217;s <literal>value</literal> property</simpara>
+<programlisting language="python" linenumbering="unnumbered">c.set("a_dict", {"foo":"bar"})
+c.data_passthrough = True
+c.get("a_dict").value == b'{"foo":"bar"}'</programlisting>
+</section>
+</section>
+<section id="_logging_and_debugging">
+<title>Logging and Debugging</title>
+<simpara>This section will cover how to uncover bugs in your application (or in the SDK
+itself).</simpara>
+<section id="_components">
+<title>Components</title>
+<simpara>To debug anything, it is necessary to be able to identify in which domain a
+problem is found. Specifically there are four components which participate
+in typical Couchbase operation</simpara>
+<itemizedlist>
+<listitem>
+<simpara>
+Couchbase Server
+</simpara>
+<simpara>This is the server itself which stores your data. Errors can happen here if your
+data does not exist, or if there are connectivity issues with one or more nodes
+in the server. Note that while Couchbase Server is scalable and fault tolerant,
+there are naturally some conditions which would cause failures (for example, if
+all nodes are unreachable).</simpara>
+</listitem>
+<listitem>
+<simpara>
+libcouchbase
+</simpara>
+<simpara>This is the underlying layer which handles network communication and protocol
+handling between a client and a Couchbase node. Network connectivity issues
+tend to happen here.</simpara>
+</listitem>
+<listitem>
+<simpara>
+Python C Extension Layer
+</simpara>
+<simpara>This is the C code which provides the bulk of the SDK. It interfaces with
+the libcouchbase component, creates <literal>Result</literal> objects, performs input
+validation and encoding/decoding of keys and values</simpara>
+</listitem>
+<listitem>
+<simpara>
+Python Layer
+</simpara>
+<simpara>This is written in pure python. For simple key-value operations these normally
+just dispatch to the C layer. Most of the view option and row code is handled
+here as well, with the C layer just performing the lower level network handling.</simpara>
+</listitem>
+</itemizedlist>
+</section>
+<section id="_exception_handling">
+<title>Exception Handling</title>
+<simpara>When something goes wrong, an exception of <literal>CouchbaseError</literal> is typically thrown.
+The exception object contains a lot of information which can be used to find out
+what went wrong.</simpara>
+<programlisting language="python" linenumbering="unnumbered">from couchbase import Couchbase
+from couchbase.exceptions import CouchbaseError
+
+c = Couchbase.connect(bucket='default')
+try:
+    # Will fail because 'object' is not JSON-serializable
+    c.set("key", object())
+except CouchbaseError as e:
+    print e</programlisting>
+<simpara>Printing the exception object will typically produce something like this:</simpara>
+<screen># line breaks inserted for clarity
+
+&lt;Couldn't encode value,
+    inner_cause=&lt;object object at 0x7f873cf220d0&gt; is not JSON serializable,
+    C Source=(src/convert.c,131),
+    OBJ=&lt;object object at 0x7f873cf220d0&gt;
+&gt;</screen>
+<simpara>The exception object consists of the following properties:</simpara>
+<itemizedlist>
+<listitem>
+<simpara>
+<literal>message</literal>
+</simpara>
+<simpara>This is the message (if any) indicating what went wrong. This is always a string</simpara>
+<screen>&gt;&gt;&gt; e.message
+"Couldn't encode value"</screen>
+</listitem>
+<listitem>
+<simpara>
+<literal>inner_cause</literal>
+</simpara>
+<simpara>If this exception was triggered by another exception, this field contains it. In
+the above example, we see the exception</simpara>
+<screen>&gt;&gt;&gt; e.inner_cause
+TypeError('&lt;object object at 0x7f873cf220d0&gt; is not JSON serializable',)</screen>
+</listitem>
+<listitem>
+<simpara>
+<literal>csrc_info</literal>
+</simpara>
+<simpara>If present, contains the source code information where the exception was
+raised. This is only present for exceptions raised from within the C
+extension</simpara>
+<screen>&gt;&gt;&gt; e.csrc_info
+('src/convert.c', 131)</screen>
+</listitem>
+<listitem>
+<simpara>
+<literal>objextra</literal>
+</simpara>
+<simpara>Contains the Python object which likely caused the exception. If present, it
+means the object was of an invalid type or format.</simpara>
+<screen>&gt;&gt;&gt; e.objextra
+&lt;object object at 0x7f873cf220d0&gt;</screen>
+</listitem>
+</itemizedlist>
+</section>
+<section id="_application_crashes">
+<title>Application Crashes</title>
+<simpara>As this is a C extension, some fatal errors may result in an application crash.
+On Unix-based systems, these typically look like this:</simpara>
+<screen>python: src/callbacks.c:132: get_common_objects: Assertion `PyDict_Contains((PyObject*)*mres, hkey) == 0' failed.
+Aborted</screen>
+<simpara>Or simply</simpara>
+<screen>Segmentation Fault</screen>
+<simpara>While the actual cause may be in the application code or in the SDK itself,
+there is often less information available in debugging it.</simpara>
+<simpara>The SDK should never crash under normal circumstances, and any application
+crash ultimately indicates a bug in the SDK itself (invalid user input should
+result in a Python exception being thrown).</simpara>
+<simpara>To better help us fix the SDK, a C <emphasis>backtrace</emphasis> is needed. To generate a helpful
+backtrace, Python should be available with debugging symbols (this can be done
+by installing <literal>python-dbg</literal> or <literal>python-debuginfo</literal> from your distribution.
+Likewise, <literal>libcouchbase</literal> itself should also be installed with debugging symbols
+(this can be done by installing <literal>libcouchbase2-dbg</literal> or <literal>libcouchbase2-debuginfo</literal>
+depending on your distribution).</simpara>
+<simpara>You will also need <literal>gdb</literal> (this is also available on any distribution).</simpara>
+<simpara>When you have the desired debugging symbols, invoke <literal>gdb</literal> as follows:</simpara>
+<simpara>We assume <literal>python</literal> is a Python interpreter, and <literal>crash.py</literal> is a script
+which can trigger the crash.</simpara>
+<screen>shell&gt; gdb --args python crash.py
+GNU gdb (GDB) 7.4.1-debian
+Copyright (C) 2012 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later &lt;http://gnu.org/licenses/gpl.html&gt;
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.  Type "show copying"
+and "show warranty" for details.
+This GDB was configured as "x86_64-linux-gnu".
+For bug reporting instructions, please see:
+&lt;http://www.gnu.org/software/gdb/bugs/&gt;...
+Reading symbols from /usr/bin/python...Reading symbols from /usr/lib/debug/usr/bin/python2.7...done.
+done.</screen>
+<simpara>This will bring you to the <literal>gdb</literal> prompt. Run the program by typing <literal>r</literal> and then
+pressing <emphasis>enter</emphasis>.</simpara>
+<screen>(gdb) r
+Starting program: /usr/bin/python crash.py
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+python: src/callbacks.c:132: get_common_objects: Assertion `PyDict_Contains((PyObject*)*mres, hkey) == 0' failed.
+
+Program received signal SIGABRT, Aborted.
+0x00007ffff6fc9475 in *__GI_raise (sig=&lt;optimized out&gt;) at ../nptl/sysdeps/unix/sysv/linux/raise.c:64
+64      ../nptl/sysdeps/unix/sysv/linux/raise.c: No such file or directory.</screen>
+<tip>
+<title>Debugging an already-running application</title>
+<simpara>Often in the case of webservers, it is difficult to invoke the script directly.
+In this case, you need to debug an already-running application. This can be
+done with <literal>gdb</literal> by determining the process ID of the already-running
+process.
+In this case, you can attach <literal>gdb</literal> to the running process like so:</simpara>
+<screen>shell&gt; gdb -p 29342
+.....
+(gdb) continue</screen>
+<simpara>Once <literal>gdb</literal> has attached, you can type <literal>continue</literal> (instead of <literal>r</literal>) to
+continue the application.</simpara>
+</tip>
+<simpara>This shows us that an application crashed. When this happens, <literal>gdb</literal> will print
+the location of the crash. This is not enough, however as we need the full
+trace of the crash. To do this, type <literal>bt</literal> and then enter to obtain the
+trace:</simpara>
+<screen>(gdb) bt
+#0  0x00007ffff6fc9475 in *__GI_raise (sig=&lt;optimized out&gt;)
+    at ../nptl/sysdeps/unix/sysv/linux/raise.c:64
+#1  0x00007ffff6fcc6f0 in *__GI_abort () at abort.c:92
+#2  0x00007ffff6fc2621 in *__GI___assert_fail (assertion=assertion@entry=
+    0x7ffff67f6f68 "PyDict_Contains((PyObject*)*mres, hkey) == 0",
+    file=&lt;optimized out&gt;, file@entry=0x7ffff67f6e0d "src/callbacks.c",
+    line=line@entry=132, function=function@entry=
+    0x7ffff67f6fe0 "get_common_objects") at assert.c:81
+#3  0x00007ffff67f000c in get_common_objects (cookie=&lt;optimized out&gt;,
+    key=&lt;optimized out&gt;, nkey=&lt;optimized out&gt;, err=err@entry=LCB_KEY_ENOENT,
+    conn=conn@entry=0x7fffffffd328, res=res@entry=0x7fffffffd330,
+    restype=restype@entry=2, mres=mres@entry=0x7fffffffd338)
+    at src/callbacks.c:132
+#4  0x00007ffff67f0623 in get_callback (instance=&lt;optimized out&gt;,
+    cookie=&lt;optimized out&gt;, err=LCB_KEY_ENOENT, resp=0x7fffffffd3e0)
+    at src/callbacks.c:216
+#5  0x00007ffff65cf861 in lcb_server_purge_implicit_responses ()
+   from /sources/libcouchbase/inst/lib/libcouchbase.so.2
+#6  0x00007ffff65d0f1b in lcb_proto_parse_single ()
+   from /sources/libcouchbase/inst/lib/libcouchbase.so.2
+#7  0x00007ffff65cfef5 in lcb_server_v0_event_handler ()
+   from /sources/libcouchbase/inst/lib/libcouchbase.so.2
+#8  0x00007ffff58b9ccc in event_base_loop ()
+   from /usr/lib/x86_64-linux-gnu/libevent-2.0.so.5
+#9  0x00007ffff65d50f0 in lcb_wait ()
+---Type &lt;return&gt; to continue, or q &lt;return&gt; to quit---</screen>
+<simpara>Python traces can be rather long; continue pressing <emphasis>enter</emphasis> until the last
+line (<literal>--Type &lt;return&gt;...</literal>) is no longer present.</simpara>
+<simpara>Once you have a backtrace, send the information (along with the script to
+reproduce, if possible) to your desired support venue.</simpara>
+<note><simpara>It is also possible to debug a crash using <emphasis>Valgrind</emphasis>, but the process is
+significantly more involved and requires a slightly modified build of
+Python. See the <emphasis>Contibuting</emphasis> section for more details.</simpara></note>
+</section>
+</section>
+</chapter>
