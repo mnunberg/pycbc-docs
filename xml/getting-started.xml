@@ -4,25 +4,53 @@
 <?asciidoc-numbered?>
 <chapter id="_getting_started">
 <title>Getting Started</title>
-<section id="_installing_the_couchbase_client_libraries">
-<title>Installing the Couchbase Client Libraries</title>
-<simpara>Before you start, you should have Python version 2.6 or later.
-Note that Python versions 3.x are supported as well.</simpara>
-<simpara>To check your Python version, type the following command:</simpara>
-<literallayout class="monospaced">shell&gt; python -V
-Python 2.6.6</literallayout>
-<simpara>Another dependency required is the C client library, <literal>libcouchbase</literal>. Consult
-the documentation [LINK_TO_LIBCOUCHBASE_INSTALL] here.</simpara>
-<simpara>If you are using Windows, note that <literal>libcouchbase</literal> is bundled in the provided
-Windows installer.</simpara>
-<simpara>Once libcouchbase is installed, you may proceed to install the <literal>couchbase</literal>
-python packate. This is normally done via the <literal>pip</literal> tool:</simpara>
-<literallayout class="monospaced">pip install couchbase --quiet</literallayout>
-<simpara>This should not output anything if successful.</simpara>
-<simpara>You can try to load your installation by trying to load the module from the
-commandline.</simpara>
-<literallayout class="monospaced">python -c 'import couchbase'</literallayout>
-<simpara>If successful, should exit and not output anything</simpara>
+<simpara>The following chapters will demonstrate how to get started quickly using Couchbase
+with the Python SDK. We&#8217;ll first show how to install the SDK and then demonstrate
+how it can be used to perform some simple operations.</simpara>
+<section id="_download_and_installation">
+<title>Download and Installation</title>
+<simpara>Follow and install these packages to get started wih using the Python SDK</simpara>
+<orderedlist numeration="arabic">
+<listitem>
+<simpara>
+<ulink url="http://www.couchbase.com/download">Get, Install, and Start Couchbase server</ulink>.
+Come back here when you are done.
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+<ulink url="http://www.couchbase.com/develop/c/current">Get and install the C library</ulink>.
+Note that for Windows users, starting with version 1.0 Beta, the C library
+is bundled with the Python SDK, so you may skip this step.
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+Check your Python version. It should be at least version 2.6 (Python
+versions 3.x are supported as well). To check your python version:
+</simpara>
+<screen>shell&gt; python -V
+python 2.6.6.</screen>
+</listitem>
+<listitem>
+<simpara>
+Install the Python SDK. The easiest way to do this is via the <literal>pip</literal> tool.
+</simpara>
+<simpara>Simply invoke</simpara>
+<screen>shell&gt; pip install couchbase --quiet</screen>
+<simpara>If all went well, you should not see any errors printed to the screen.</simpara>
+<simpara>Alternatively, you may also manually download one of the packages at
+<ulink url="https://pypi.python.org/pypi/couchbase">PyPi</ulink></simpara>
+</listitem>
+<listitem>
+<simpara>
+Verify your Python SDK is available and working
+</simpara>
+<screen>shell&gt; python -c 'import couchbase'</screen>
+</listitem>
+</orderedlist>
+<simpara>If this does not print any errors or exceptions, your Python SDK is properly
+installed!</simpara>
 </section>
 <section id="_hello_couchbase">
 <title>Hello Couchbase</title>
@@ -132,7 +160,7 @@ We will explain the following briefly</simpara>
 <emphasis role="strong">Key</emphasis>
 </simpara>
 <simpara>A key is a unique identifier for your data. Each document must have its unique
-key. The key structure can be any valid <literal>utf-8</literal> string.</simpara>
+key. The key can be any valid unicode string.</simpara>
 </listitem>
 <listitem>
 <simpara>
@@ -148,9 +176,23 @@ database based on value contents, as will be explained later.</simpara>
 <simpara>Note that it is possible to also store arbitrary Python objects using the
 <literal>FMT_PICKLE</literal> value for the <literal>format</literal> option.</simpara>
 </listitem>
+<listitem>
+<simpara>
+<emphasis role="strong">Metadata</emphasis>
+</simpara>
+<simpara>This contains information concerning the format of the value (e.g. whether it&#8217;s
+JSON, Pickle, or something else). It also contains revision information - such
+as the <emphasis>CAS</emphasis>, which we&#8217;ll read about later.</simpara>
+</listitem>
 </itemizedlist>
-<section id="_storing_simple_documents">
-<title>Storing Simple Documents</title>
+<simpara>You can <emphasis>store</emphasis> documents by providing the unique <emphasis>key</emphasis> under which the document
+will be stored, and the <emphasis>value</emphasis> which contains the actual document. You can
+<emphasis>retrieve</emphasis> documents either by directly specifying the unique <emphasis>key</emphasis> under which
+the document was stored, or by querying <emphasis>views</emphasis> which will retrieve information
+about documents based on specific <emphasis>criteria</emphasis> - which will yield the
+documents that match it.</simpara>
+<section id="_storing_documents">
+<title>Storing Documents</title>
 <simpara>This section provides a bit more insight in how to store documents. This is a
 prerequisite to demonstrate how to retrieve documents (as there must be
 something to retrieve)</simpara>
@@ -280,8 +322,6 @@ Getting the new value
 ... ValueResult&lt;RC=0x0, Key=demo_key, Value=u'added_value', CAS=0x366a05f196e80000, Flags=0x0&gt;</screen>
 </example>
 </section>
-<section id="_reading_documents">
-<title>Reading Documents</title>
 <section id="_getting_documents_by_key">
 <title>Getting Documents By Key</title>
 <simpara>Couchbase allows two ways to fetch your documents: You can retrieve a
@@ -322,16 +362,28 @@ it to true (to suppress exceptions for a specific <literal>get</literal> call) o
 exceptions on <literal>get</literal> for subsequent calls).</simpara>
 <simpara>When using <literal>quiet</literal>, you can still determine if a key was retrieved successfuly
 by examining the <literal>success</literal> property of the value object</simpara>
+<formalpara><title>Passing <literal>quiet</literal> to <literal>get</literal></title><para>
 <programlisting language="python" linenumbering="unnumbered">result = client.get("non-exist-key", quiet=True)
 if result.success:
     print "Got document OK"
 else:
     print ("Couldn't retrieve document. "
            "Result was received with code"), result.rc</programlisting>
+</para></formalpara>
+<simpara>Or</simpara>
+<formalpara><title>Setting <literal>quiet</literal> in the constructor</title><para>
+<programlisting language="python" linenumbering="unnumbered">client = Couchbase.connect(bucket='default', quiet=True)
+result = client.get("non-exist-key")
+if result.success:
+    print "Got document OK"
+else:
+    print "Couldn't retrieve document"</programlisting>
+</para></formalpara>
 <simpara>The <literal>rc</literal> property of the <literal>Result</literal> object contains the error code received
 on failure (on success, its value is <literal>0</literal>). You can also obtain the exception
 class which would have been thrown by using</simpara>
-<literallayout class="monospaced">`CouchbaseError.rc_to_exctype(result.rc)`</literallayout>
+<programlisting language="python" linenumbering="unnumbered">&gt;&gt;&gt; CouchbaseError.rc_to_exctype(result.rc)
+&lt;class 'couchbase.exceptions.NotFoundError'&gt;</programlisting>
 <simpara>This class method is passed an error code and produces the appropriate
 exception class.</simpara>
 <simpara>Note that on <literal>get_multi</literal> with the quiet option enabled, you can immediately
@@ -342,12 +394,13 @@ if not results.all_ok:
     print "Couldn't get all keys"</programlisting>
 </tip>
 </section>
-<section id="_getting_documents_by_views">
-<title>Getting Documents by Views</title>
+<section id="_getting_documents_by_querying_views">
+<title>Getting Documents by Querying Views</title>
 <simpara>In addition to fetching documents by keys, you may also employ <emphasis>Views</emphasis> to retrieve
 information using secondary indexes. This guide gets you started on how to use
-them from the Python SDK. If you want to learn more about views, see the &lt;link?&gt;
-server manual.</simpara>
+them from the Python SDK. If you want to learn more about views, see the
+<ulink url="http://www.couchbase.com/docs/couchbase-manual-2.0/couchbase-views.html">
+chapter in the Couchbase Server 2.0 documentation</ulink></simpara>
 <simpara>First, create your view definition using the web UI (though you may also do
 this directly from the Python SDK, as will be shown later).</simpara>
 <simpara>You can then query the view results by calling the <literal>query</literal> method on the
@@ -365,7 +418,11 @@ for each of the results returned by the view.</simpara>
 <simpara>In addition to passing the design and view name, the <literal>query</literal> method accepts
 additional keyword arguments which control the behavior of the results
 returned. You may thus use it like so:</simpara>
-<literallayout class="monospaced">results = client.query("beer", "brewery_beers", opt1=value1, opt2=value2, ...)</literallayout>
+<programlisting language="python" linenumbering="unnumbered">results = client.query("beer", "brewery_beers", opt1=value1, opt2=value2, ...)
+for result in results:
+    # do something with result..</programlisting>
+<simpara>Here are some of the available parameters for the <literal>query</literal> method. A full listing
+may be found in the API documentation.</simpara>
 <itemizedlist>
 <listitem>
 <simpara>
@@ -424,10 +481,12 @@ but not load the entire resultset in memory.</simpara>
 <simpara>Here&#8217;s a more extensive example</simpara>
 <programlisting language="python" linenumbering="unnumbered">results = client.query("beer", "brewery_beers",
                        include_docs=True, limit=5)
+
 for result in results:
     print "key is %r" % (result.key)
-    # We'd print the document too, but this can be rather large</programlisting>
-</section>
+    doc = result.doc.value
+    if doc['type'] == "beer":
+        print "Got a beer. It's got %0.2f ABV" % (doc['abv'],)</programlisting>
 </section>
 <section id="_encoding_and_serialization">
 <title>Encoding and Serialization</title>
@@ -498,8 +557,8 @@ c.set("a_python_set", set([1,2,3]), format=FMT_PICKLE)
 pprint.pprint(c.get("a_python_object").value)
 pprint.pprint(c.get("a_python_set").value)</programlisting>
 <simpara>Outputs:</simpara>
-<literallayout class="monospaced">&lt;object object at 0x7fa7d0ad80e0&gt;
-set([1, 2, 3])</literallayout>
+<screen>&lt;object object at 0x7fa7d0ad80e0&gt;
+set([1, 2, 3])</screen>
 <simpara>You can also store arbitrary strings of bytes by using <literal>FMT_BYTES</literal></simpara>
 <note><simpara>In Python 2 (2.6 and above) <literal>bytes</literal> and <literal>str</literal> are the same type; however
 in Python 3, a <literal>str</literal> is a string with an encoding (i.e. Python 2&#8217;s <literal>unicode</literal>)

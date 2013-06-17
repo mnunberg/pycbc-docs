@@ -13,7 +13,8 @@ The sample application is not entirely complete, and there are some features
 which remain to be implemented. Implementing them is an exercise for the
 reader.
 
-The full source code is available through couchbaselabs on GitHub <link?>
+The full source code is available through couchbaselabs on
+https://github.com/couchbaselabs/beersample-python[GitHub]
 
 Note that the sample application provides more content then described in this
 tutorial but it should be simple to navigate while reading this tutorial.
@@ -24,10 +25,9 @@ Quickstart
 * Ensure you have _Flask_ installed. You can either install it via your
 distribution or use `pip install flask`.
 
-* Download Couchbase Server <link?> and install it. Make sure to install the
-`beer-sample` dataset when you run the wizard, because this tutorial application
-will work with it.
-
+* http://www.couchbase.com/download[Download Couchbase Server] and install it.
+Make sure to install the `beer-sample` dataset when you run the wizard,
+because this tutorial application will work with it.
 
 * Clone the repository and `cd` into the directory
 +
@@ -76,6 +76,11 @@ shell> python beer.py
 
 Preparations
 ~~~~~~~~~~~~
+
+In this section we'll talk a bit about setting up your directory layout
+and adding some views in the server before we start dealing with the Python
+SDK and Flask itself.
+
 
 Project Setup
 ^^^^^^^^^^^^^
@@ -230,9 +235,8 @@ from couchbase.views.iterator import RowProcessor
 from couchbase.views.params import UNSPEC, Query
 ----------------------------------
 
-
 Then, we want to set some constants for our application.
-[source,python]
+
 .beer.py (configuration)
 ---------------------------------
 DATABASE = 'beer-sample'
@@ -245,6 +249,7 @@ breweries to show in the search results.
 
 
 Now, we're ready to create our `Flask` application instance
+
 [source,python]
 .beer.py (creating the application)
 -----------------------------------
@@ -268,8 +273,8 @@ Flask scans this module for variable names in `UPPER_CASE` and places
 them in the `app.config` dictionary.
 
 
-
 Then, define a function to give us a database connection
+
 [source,python]
 .beer.py (generating a Connection object)
 -----------------------------------------
@@ -297,6 +302,7 @@ which is displayed when someone will go to the root of your site. Since there
 is no Couchbase interaction involved, we just tell Flask to render the template.
 
 [source,python]
+.beer.py (welcome page)
 ---------------
 @app.route('/')
 def welcome():
@@ -402,6 +408,9 @@ this is because we haven't implemented them yet. Let's do that now!
 Managing Beers
 ~~~~~~~~~~~~~~
 
+In this section we'll show the construction of the webapp in respect to managing
+beers. We'll be able to list, inspect, edit, create, search, and delete beers.
+
 Showing Beers
 ^^^^^^^^^^^^^
 
@@ -410,6 +419,7 @@ Now we're finally getting into the cooler stuff of this tutorial.
 First, we'll implement several classes for our pages to use.
 
 [source,python]
+.beer.py (custom Beer row class and processing)
 ------------------
 
 class Beer(object):
@@ -499,6 +509,7 @@ the `query` function) will now yield results from it as we iterate over it.
 Before we forget, let's put this all together:
 
 [source,python]
+.beer.py (showing beer listings)
 ---------------
 @app.route('/beers')
 def beers():
@@ -529,7 +540,7 @@ function.
 
 Here is the `beer/index.html` template:
 
-.beer/index.html
+.templates/beer/index.html
 --------------------------------------
 {% extends "layout.html" %}
 {% block body %}
@@ -585,11 +596,13 @@ Deleting Beers
 ^^^^^^^^^^^^^^
 
 Due to the simplicity of Couchbase and Flask, we can implement a single method
-to delete both beers and breweries:
+to delete both beers and breweries.
 
-[source,python]
+
+.beer.py (deleting a beer)
 ---------------------------------
-@app.route('/<otype>/delete/<id>')
+
+@app.route('<otype>/delete/<id>')
 def delete_object(otype, id):
     try:
         db.delete(id)
@@ -597,11 +610,13 @@ def delete_object(otype, id):
 
     except NotFoundError:
         return "No such {0} '{1}'".format(otype, id), 404
+
 ----------------------------------
 
 Here we tell flask to route any URL which has as its second component the string
 `delete` to this method. The paths in `<angle brackets>` are routing tokens
-which flask passes to the handler as arguments.
+which flask passes to the handler as arguments. This means that URLs such as
+`/beers/delete/foobar`, `/foo/delete/whatever` etc. are all routed to here.
 
 When we get an ID, we try to delete it by using the `delete` method. We use a
 `try` block. If successful, we redirect to the welcome page; but if the key
@@ -619,6 +634,7 @@ Here we will demonstrate how you can display the beers. In this case, we display
 a page showing all the fields and values of a given beer.
 
 [source,python]
+.beer.py (showing a single beer)
 ---------------
 @app.route('/beers/show/<beer_id>')
 def show_beer(beer_id):
@@ -698,6 +714,7 @@ Editing Beers
 ^^^^^^^^^^^^^
 
 [source,python]
+.beer.py (beer edit page)
 ---------------
 def normalize_beer_fields(form):
     doc = {}
@@ -849,26 +866,31 @@ Creating Beers
 
 This is largely the same as editing beers:
 
-[source,python]
+.beer.py (create beer page)
 ---------------
+
 @app.route('/beers/create')
 def create_beer_display():
     return render_template('beer/edit.html', beer=Beer('', ''), is_create=True)
 
+
 @app.route('/beers/create', methods=['POST'])
 def create_beer_submit():
     doc, err = normalize_beer_fields(request.form)
+
     if not doc:
         return err
 
     id = '{0}-{1}'.format(doc['brewery_id'],
                           doc['name'].replace(' ', '_').lower())
+
     try:
         db.add(id, doc)
         return redirect('/beers/show/' + id)
 
     except KeyExistsError:
         return "Beer already exists!", 400
+
 ----------------
 
 Here we display the same form as the one for editing beers, except we set the
@@ -898,7 +920,7 @@ in the `static/js/beersample.js` file (if it's not there already) to listen
 on searchbox changes and update the table with the resulting JSON (which will
 be returned from the search method):
 
-[source,Javascript]
+[source,javascript]
 .static/js/beersample.js (snippet)
 -----------------------------------
 $(document).ready(function() {
@@ -938,6 +960,7 @@ new rows.
 The search handler looks like this:
 
 [source,python]
+.beer.py (ajax search response)
 -------------------------------
 def return_search_json(ret):
     response = app.make_response(json.dumps(ret))
@@ -987,8 +1010,13 @@ We re-use our `BeerListRowProcessor` class to filter the results here (as the
 data required is the same as that of the beer listing (`beer/index.html`) page.
 
 However we need to return a JSON array of
-`{ "id" : "beer_id", "name" : "beer_name", "brewery" : "the_brewery_id" }` - so
-we need to convert the rows into JSON first. This is done by the
+
+[source,javascript]
+--------
+{ "id" : "beer_id", "name" : "beer_name", "brewery" : "the_brewery_id" }
+---------
+
+so we need to convert the rows into JSON first. This is done by the
 `return_search_json` function.
 
 Now your search box should work nicely.

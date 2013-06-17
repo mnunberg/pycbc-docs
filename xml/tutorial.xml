@@ -11,7 +11,8 @@ will allow you to edit and manage various beers and breweries.</simpara>
 <note><simpara>The sample application is not entirely complete, and there are some features
 which remain to be implemented. Implementing them is an exercise for the
 reader.</simpara></note>
-<simpara>The full source code is available through couchbaselabs on GitHub &lt;link?&gt;</simpara>
+<simpara>The full source code is available through couchbaselabs on
+<ulink url="https://github.com/couchbaselabs/beersample-python">GitHub</ulink></simpara>
 <simpara>Note that the sample application provides more content then described in this
 tutorial but it should be simple to navigate while reading this tutorial.</simpara>
 <section id="_quickstart">
@@ -25,9 +26,9 @@ distribution or use <literal>pip install flask</literal>.
 </listitem>
 <listitem>
 <simpara>
-Download Couchbase Server &lt;link?&gt; and install it. Make sure to install the
-<literal>beer-sample</literal> dataset when you run the wizard, because this tutorial application
-will work with it.
+<ulink url="http://www.couchbase.com/download">Download Couchbase Server</ulink> and install it.
+Make sure to install the <literal>beer-sample</literal> dataset when you run the wizard,
+because this tutorial application will work with it.
 </simpara>
 </listitem>
 <listitem>
@@ -74,6 +75,9 @@ Navigate to <literal>localhost:5000</literal> and enjoy the application!
 </section>
 <section id="_preparations">
 <title>Preparations</title>
+<simpara>In this section we&#8217;ll talk a bit about setting up your directory layout
+and adding some views in the server before we start dealing with the Python
+SDK and Flask itself.</simpara>
 <section id="_project_setup">
 <title>Project Setup</title>
 <simpara>Create your project directory, we will call it <literal>beer</literal></simpara>
@@ -247,9 +251,9 @@ from couchbase.views.params import UNSPEC, Query</programlisting>
 </para></formalpara>
 <simpara>Then, we want to set some constants for our application.</simpara>
 <formalpara><title>beer.py (configuration)</title><para>
-<programlisting language="python" linenumbering="unnumbered">DATABASE = 'beer-sample'
+<screen>DATABASE = 'beer-sample'
 HOST = 'localhost'
-ENTRIES_PER_PAGE = 30</programlisting>
+ENTRIES_PER_PAGE = 30</screen>
 </para></formalpara>
 <simpara>The <literal>ENTRIES_PER_PAGE</literal> variable is used later on to configure how many beers and
 breweries to show in the search results.</simpara>
@@ -291,11 +295,13 @@ simple app, we can get away with it.</simpara>
 <simpara>The first route we will implement is that of the <literal>welcome</literal> page, i.e. the page
 which is displayed when someone will go to the root of your site. Since there
 is no Couchbase interaction involved, we just tell Flask to render the template.</simpara>
+<formalpara><title>beer.py (welcome page)</title><para>
 <programlisting language="python" linenumbering="unnumbered">@app.route('/')
 def welcome():
     return render_template('welcome.html')
 
 app.add_url_rule('/welcome', view_func=welcome)</programlisting>
+</para></formalpara>
 <simpara>The <literal>welcome.html</literal> is actually a <emphasis>Jinja</emphasis> template inside the
 <literal>templates</literal> directory. Its contents is displayed here:</simpara>
 <formalpara><title>templates/welcome.html</title><para>
@@ -385,10 +391,13 @@ this is because we haven&#8217;t implemented them yet. Let&#8217;s do that now!<
 </section>
 <section id="_managing_beers">
 <title>Managing Beers</title>
+<simpara>In this section we&#8217;ll show the construction of the webapp in respect to managing
+beers. We&#8217;ll be able to list, inspect, edit, create, search, and delete beers.</simpara>
 <section id="_showing_beers">
 <title>Showing Beers</title>
 <simpara>Now we&#8217;re finally getting into the cooler stuff of this tutorial.</simpara>
 <simpara>First, we&#8217;ll implement several classes for our pages to use.</simpara>
+<formalpara><title>beer.py (custom Beer row class and processing)</title><para>
 <programlisting language="python" linenumbering="unnumbered">class Beer(object):
     def __init__(self, id, name, doc=None):
         self.id = id
@@ -427,6 +436,7 @@ class BeerListRowProcessor(object):
             beer.brewery_id = doc.value['brewery_id']
 
         return ret</programlisting>
+</para></formalpara>
 <simpara>First, we declare a simple <literal>Beer</literal> object. This isn&#8217;t too fancy and we
 could&#8217;ve probably just used a simple <literal>dict</literal> - however it allows us
 to demonstrate the use of the <literal>RowProcessor</literal> interface (defined next).</simpara>
@@ -459,6 +469,7 @@ dictionary using the <literal>beer_id</literal> as the key.</simpara>
 <simpara>Finally, we return the list of populated beers. The <literal>View</literal> object (returned by
 the <literal>query</literal> function) will now yield results from it as we iterate over it.</simpara>
 <simpara>Before we forget, let&#8217;s put this all together:</simpara>
+<formalpara><title>beer.py (showing beer listings)</title><para>
 <programlisting language="python" linenumbering="unnumbered">@app.route('/beers')
 def beers():
     rp = BeerListRowProcessor()
@@ -467,6 +478,7 @@ def beers():
                     row_processor=rp)
 
     return render_template('beer/index.html', results=rows)</programlisting>
+</para></formalpara>
 <simpara>We tell flask to route requests to <literal>/beers</literal> to this function.
 We create an instance of the <literal>BeerListRowProcessor</literal> function we just defined
 above.</simpara>
@@ -480,7 +492,7 @@ processing the results.</simpara>
 setting the template variable <literal>rows</literal> to the iterable returned by the <literal>query</literal>
 function.</simpara>
 <simpara>Here is the <literal>beer/index.html</literal> template:</simpara>
-<formalpara><title>beer/index.html</title><para>
+<formalpara><title>templates/beer/index.html</title><para>
 <screen>{% extends "layout.html" %}
 {% block body %}
 
@@ -529,18 +541,21 @@ you to define new beers.</simpara>
 <section id="_deleting_beers">
 <title>Deleting Beers</title>
 <simpara>Due to the simplicity of Couchbase and Flask, we can implement a single method
-to delete both beers and breweries:</simpara>
-<programlisting language="python" linenumbering="unnumbered">@app.route('/&lt;otype&gt;/delete/&lt;id&gt;')
+to delete both beers and breweries.</simpara>
+<formalpara><title>beer.py (deleting a beer)</title><para>
+<screen>@app.route('&lt;otype&gt;/delete/&lt;id&gt;')
 def delete_object(otype, id):
     try:
         db.delete(id)
         return redirect('/welcome')
 
     except NotFoundError:
-        return "No such {0} '{1}'".format(otype, id), 404</programlisting>
+        return "No such {0} '{1}'".format(otype, id), 404</screen>
+</para></formalpara>
 <simpara>Here we tell flask to route any URL which has as its second component the string
 <literal>delete</literal> to this method. The paths in <literal>&lt;angle brackets&gt;</literal> are routing tokens
-which flask passes to the handler as arguments.</simpara>
+which flask passes to the handler as arguments. This means that URLs such as
+<literal>/beers/delete/foobar</literal>, <literal>/foo/delete/whatever</literal> etc. are all routed to here.</simpara>
 <simpara>When we get an ID, we try to delete it by using the <literal>delete</literal> method. We use a
 <literal>try</literal> block. If successful, we redirect to the welcome page; but if the key
 does not exist, we return with an error message and a <literal>404</literal> status code.</simpara>
@@ -552,6 +567,7 @@ in the <literal>/beers</literal> page!</simpara>
 <title>Displaying Beers</title>
 <simpara>Here we will demonstrate how you can display the beers. In this case, we display
 a page showing all the fields and values of a given beer.</simpara>
+<formalpara><title>beer.py (showing a single beer)</title><para>
 <programlisting language="python" linenumbering="unnumbered">@app.route('/beers/show/&lt;beer_id&gt;')
 def show_beer(beer_id):
     doc = db.get(beer_id, quiet=True)
@@ -562,6 +578,7 @@ def show_beer(beer_id):
     return render_template(
         'beer/show.html',
         beer=Beer(beer_id, doc.value['name'], doc.value))</programlisting>
+</para></formalpara>
 <simpara>Like for the <literal>delete</literal> action, we first check to see that the beer exists.
 We are passed the beer ID as the last part of the URL - this is passed to
 us as the <literal>beer_id</literal>.</simpara>
@@ -615,6 +632,7 @@ brewery ID); printing out the key and value of each.</simpara>
 </section>
 <section id="_editing_beers">
 <title>Editing Beers</title>
+<formalpara><title>beer.py (beer edit page)</title><para>
 <programlisting language="python" linenumbering="unnumbered">def normalize_beer_fields(form):
     doc = {}
     for k, v in form.items():
@@ -657,6 +675,7 @@ def edit_beer_submit(beer):
 
     db.set(beer, doc)
     return redirect('/beers/show/' + beer)</programlisting>
+</para></formalpara>
 <simpara>We define two handlers for editing. The first is the <literal>GET</literal> method for
 <literal>/beers/edit/&lt;beer&gt;</literal> which displays a nice HTML form in which we can
 use to edit it. It passes the template the <literal>Beer</literal> object, a boolean
@@ -749,24 +768,29 @@ it&#8217;s titled as <literal>Create Beer</literal>.</simpara>
 <section id="_creating_beers">
 <title>Creating Beers</title>
 <simpara>This is largely the same as editing beers:</simpara>
-<programlisting language="python" linenumbering="unnumbered">@app.route('/beers/create')
+<formalpara><title>beer.py (create beer page)</title><para>
+<screen>@app.route('/beers/create')
 def create_beer_display():
     return render_template('beer/edit.html', beer=Beer('', ''), is_create=True)
+
 
 @app.route('/beers/create', methods=['POST'])
 def create_beer_submit():
     doc, err = normalize_beer_fields(request.form)
+
     if not doc:
         return err
 
     id = '{0}-{1}'.format(doc['brewery_id'],
                           doc['name'].replace(' ', '_').lower())
+
     try:
         db.add(id, doc)
         return redirect('/beers/show/' + id)
 
     except KeyExistsError:
-        return "Beer already exists!", 400</programlisting>
+        return "Beer already exists!", 400</screen>
+</para></formalpara>
 <simpara>Here we display the same form as the one for editing beers, except we set the
 <literal>is_create</literal> parameter to True, and pass an empty <literal>Beer</literal> object - needed because
 the template still tries to populate the form fields with <emphasis>existing</emphasis> values.</simpara>
@@ -789,7 +813,7 @@ in the <literal>static/js/beersample.js</literal> file (if it&#8217;s not there 
 on searchbox changes and update the table with the resulting JSON (which will
 be returned from the search method):</simpara>
 <formalpara><title>static/js/beersample.js (snippet)</title><para>
-<programlisting language="Javascript" linenumbering="unnumbered">$(document).ready(function() {
+<programlisting language="javascript" linenumbering="unnumbered">$(document).ready(function() {
 
     /**
      * AJAX Beer Search Filter
@@ -821,6 +845,7 @@ handler computes the result (using views) and returns it as JSON. The
 JavaScript then clears the table, iterates over the results, and creates
 new rows.</simpara>
 <simpara>The search handler looks like this:</simpara>
+<formalpara><title>beer.py (ajax search response)</title><para>
 <programlisting language="python" linenumbering="unnumbered">def return_search_json(ret):
     response = app.make_response(json.dumps(ret))
     response.headers['Content-Type'] = 'application/json'
@@ -847,6 +872,7 @@ def beer_search():
                     'brewery' : beer.brewery_id})
 
     return return_search_json(ret)</programlisting>
+</para></formalpara>
 <simpara>The <literal>beer_search</literal> function first extracts the user input by examining the query
 string from the request.</simpara>
 <simpara>It then creates a <literal>Query</literal> object; the <literal>Query</literal> object then has its <literal>mapkey_range</literal>
@@ -862,9 +888,9 @@ for the view engine means "end here". You need to get used to it a bit, but it&#
 actually very neat and efficient.</simpara>
 <simpara>We re-use our <literal>BeerListRowProcessor</literal> class to filter the results here (as the
 data required is the same as that of the beer listing (<literal>beer/index.html</literal>) page.</simpara>
-<simpara>However we need to return a JSON array of
-<literal>{ "id" : "beer_id", "name" : "beer_name", "brewery" : "the_brewery_id" }</literal> - so
-we need to convert the rows into JSON first. This is done by the
+<simpara>However we need to return a JSON array of</simpara>
+<programlisting language="javascript" linenumbering="unnumbered">{ "id" : "beer_id", "name" : "beer_name", "brewery" : "the_brewery_id" }</programlisting>
+<simpara>so we need to convert the rows into JSON first. This is done by the
 <literal>return_search_json</literal> function.</simpara>
 <simpara>Now your search box should work nicely.</simpara>
 </section>
