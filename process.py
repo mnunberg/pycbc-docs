@@ -27,6 +27,11 @@ ap.add_argument('-i', '--input',
         metavar='FILES',
         nargs='+')
 
+ap.add_argument('-j', '--jobs',
+        metavar='JOBS',
+        type=int,
+        default=16)
+
 options = ap.parse_args()
 inputs = options.input
 if not inputs:
@@ -80,7 +85,7 @@ FMT_MAP = {
         'pdf' : convert_file_pdf,
         }
 
-p = Pool(processes=16)
+p = Pool(processes=options.jobs)
 results = []
 for src in inputs:
     for fmt in options.formats:
