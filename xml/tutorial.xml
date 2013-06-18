@@ -53,7 +53,7 @@ invoke the <literal>design_setup.py</literal> script in the sample repository.
 }</programlisting>
 <simpara>Create a design document called <literal>brewery</literal>. Add a view called <literal>by_name</literal></simpara>
 <programlisting language="javascript" linenumbering="unnumbered">function (doc, meta) {
-    if (doc.type == "brewery") {
+    if (doc.type &amp;&amp; doc.type == "brewery") {
         emit(doc.name, null);
     }
 }</programlisting>
@@ -94,7 +94,6 @@ shell&gt; mkdir static/css</screen>
 ./static
 ./static/js
 ./static/css
-./static/html
 ./templates
 ./templates/brewery
 ./templates/beer</screen>
@@ -137,6 +136,10 @@ has all the dependencies included. We&#8217;ll now move on and configure the
 </section>
 <section id="_preparing_the_views">
 <title>Preparing the Views</title>
+<note><simpara>If you&#8217;ve run the <literal>design_setup.py</literal> script in the quickstart, then you
+don&#8217;t need to create the views listed below, as the script has already done
+this for you. Nevertheless you may wish to read the following section which
+explains what the views do.</simpara></note>
 <simpara>The beer-sample bucket comes with a small set of views already predefined,
 but to make our application function correctly we need some more.
 This is also a very good chance to explore the view management possibilities
@@ -245,7 +248,7 @@ import json
 from flask import Flask, request, redirect, abort, render_template
 
 from couchbase import Couchbase
-from couchbase.exceptions import KeyExistsError
+from couchbase.exceptions import KeyExistsError, NotFoundError
 from couchbase.views.iterator import RowProcessor
 from couchbase.views.params import UNSPEC, Query</programlisting>
 </para></formalpara>
@@ -285,9 +288,9 @@ db = connect_db()</programlisting>
 </para></formalpara>
 <simpara>You already know how to connect to a Couchbase cluster, we&#8217;ll skip the
 explanation here.</simpara>
-<simpara>The second line sets the module-level <literal>db</literal> variable to be the <literal>Connection</literal> object.
-While in larger applications this is probably not a good idea, since this is a
-simple app, we can get away with it.</simpara>
+<simpara>The second statement sets the module-level <literal>db</literal> variable to be the
+<literal>Connection</literal> object. While in larger applications this is probably
+not a good idea, since this is a simple app, we can get away with it.</simpara>
 </section>
 </section>
 <section id="_the_welcome_page">
@@ -297,10 +300,9 @@ which is displayed when someone will go to the root of your site. Since there
 is no Couchbase interaction involved, we just tell Flask to render the template.</simpara>
 <formalpara><title>beer.py (welcome page)</title><para>
 <programlisting language="python" linenumbering="unnumbered">@app.route('/')
+@app.route('/welcome')
 def welcome():
-    return render_template('welcome.html')
-
-app.add_url_rule('/welcome', view_func=welcome)</programlisting>
+    return render_template('welcome.html')</programlisting>
 </para></formalpara>
 <simpara>The <literal>welcome.html</literal> is actually a <emphasis>Jinja</emphasis> template inside the
 <literal>templates</literal> directory. Its contents is displayed here:</simpara>
@@ -380,11 +382,17 @@ footer to them&#8201;&#8212;&#8201;with only their <literal>body</literal> diffe
       &lt;/div&gt;
     &lt;/div&gt;
     &lt;script src="/js/jquery.min.js"&gt;&lt;/script&gt;
-    &lt;script src="/js/bootstrap.min.js"&gt;&lt;/script&gt;
     &lt;script src="/js/beersample.js"&gt;&lt;/script&gt;
   &lt;/body&gt;
 &lt;/html&gt;</screen>
 </para></formalpara>
+<simpara>We&#8217;re almost ready. We just need to tell Flask to start the webapp. At the bottom
+of the file, place this</simpara>
+<formalpara><title>beer.py (initialization)</title><para>
+<programlisting language="python" linenumbering="unnumbered">if __name__ == "__main__":
+    app.run(host='0.0.0.0')</programlisting>
+</para></formalpara>
+<simpara>This tells Flask to actually run your application.</simpara>
 <simpara>If you start your app now, you should be able to navigate to <literal>localhost:5000</literal>
 and see the welcome page. You&#8217;ll get a 404 if you try to visit any links though -
 this is because we haven&#8217;t implemented them yet. Let&#8217;s do that now!</simpara>
@@ -424,7 +432,7 @@ class BeerListRowProcessor(object):
             ret.append(b)
             by_docids[b.id] = b
 
-        keys_to_fetch = [ x.id for x in ret ]
+        keys_to_fetch = [x.id for x in ret]
         docs = connection.get_multi(keys_to_fetch, quiet=True)
 
         for beer_id, doc in docs.items():
@@ -479,7 +487,7 @@ def beers():
 
     return render_template('beer/index.html', results=rows)</programlisting>
 </para></formalpara>
-<simpara>We tell flask to route requests to <literal>/beers</literal> to this function.
+<simpara>We tell Flask to route requests to <literal>/beers</literal> to this function.
 We create an instance of the <literal>BeerListRowProcessor</literal> function we just defined
 above.</simpara>
 <simpara>We then execute a view query using the <literal>query</literal> method; passing it the name of the
@@ -552,9 +560,9 @@ def delete_object(otype, id):
     except NotFoundError:
         return "No such {0} '{1}'".format(otype, id), 404</screen>
 </para></formalpara>
-<simpara>Here we tell flask to route any URL which has as its second component the string
+<simpara>Here we tell Flask to route any URL which has as its second component the string
 <literal>delete</literal> to this method. The paths in <literal>&lt;angle brackets&gt;</literal> are routing tokens
-which flask passes to the handler as arguments. This means that URLs such as
+which Flask passes to the handler as arguments. This means that URLs such as
 <literal>/beers/delete/foobar</literal>, <literal>/foo/delete/whatever</literal> etc. are all routed to here.</simpara>
 <simpara>When we get an ID, we try to delete it by using the <literal>delete</literal> method. We use a
 <literal>try</literal> block. If successful, we redirect to the welcome page; but if the key
@@ -562,6 +570,11 @@ does not exist, we return with an error message and a <literal>404</literal> sta
 <simpara>You can now access this page by going to <literal>localhost:5000/beers/delete/nonexistent</literal>
 and get a 404. Or you can delete a beer by clicking on one of the <literal>Delete</literal> buttons
 in the <literal>/beers</literal> page!</simpara>
+<warning><simpara>Because your browser caches content, fetching the beer again may still display
+the page (instead of a 404). This is not an error in the application, but rather
+a feature of the browser (you can also instruct Flask to insert the necessary
+caching HTTP headers too). To alleviate this, ensure you actually "refresh" the
+page using your browser (e.g. <emphasis>Ctrl+R</emphasis> or <emphasis>F5</emphasis> etc.).</simpara></warning>
 </section>
 <section id="_displaying_beers">
 <title>Displaying Beers</title>
@@ -596,8 +609,7 @@ we&#8217;ll show here:</simpara>
 <screen>{% extends "layout.html" %}
 {% block body %}
 
-{% set display = beer.doc %}
-{% set brewery_id = display['brewery_id'] %}
+{% set brewery_id = beer.doc['brewery_id'] %}
 
 &lt;h3&gt;Show Details for Beer "{{beer.name}}"&lt;/h3&gt;
 &lt;table class="table table-striped"&gt;
@@ -606,7 +618,7 @@ we&#8217;ll show here:</simpara>
             &lt;td&gt;&lt;strong&gt;brewery_id&lt;/strong&gt;&lt;/td&gt;
             &lt;td&gt;&lt;a href="/breweries/show/{{brewery_id}}"&gt;{{brewery_id}}&lt;/a&gt;&lt;/td&gt;
         &lt;/tr&gt;
-        {% for k, v in display.items() if not k == "brewery_id" %}
+        {% for k, v in beer.doc.items() if k != "brewery_id" %}
         &lt;tr&gt;
             &lt;td&gt;&lt;strong&gt;{{k}}&lt;/strong&gt;&lt;/td&gt;
             &lt;td&gt;{{v}}&lt;/td&gt;
@@ -622,9 +634,7 @@ we&#8217;ll show here:</simpara>
 
 {% endblock %}</screen>
 </para></formalpara>
-<simpara>Here we make the <literal>display</literal> variable in a special <literal>{% set %}</literal> directive.
-This makes dealing with the rest of the code simpler.</simpara>
-<simpara>The next thing we do is extract the <literal>brewery_id</literal>, and create a special
+<simpara>The first thing we do is extract the <literal>brewery_id</literal>, and create a special
 entry with a link pointing to the page to display the actual brewery.</simpara>
 <simpara>The next thing we do is iterate over the rest of the fields (omitting the
 brewery ID); printing out the key and value of each.</simpara>
@@ -654,7 +664,7 @@ brewery ID); printing out the key and value of each.</simpara>
 
     return doc, None
 
-@app.route('/beers/edit/&lt;beer&gt;', methods=['GET'])
+@app.route('/beers/edit/&lt;beer&gt;')
 def edit_beer_display(beer):
     bdoc = db.get(beer, quiet=True)
     if not bdoc.success:
@@ -662,7 +672,6 @@ def edit_beer_display(beer):
 
     return render_template('beer/edit.html',
                            beer=Beer(beer, bdoc.value['name'], bdoc.value),
-                           posturl='/beers/edit/' + beer,
                            is_create=False)
 
 
@@ -807,43 +816,14 @@ newly created beer.</simpara>
 <simpara>In the beer listing page above, you may have noticed a search box at the top.
 We can use it to dynamically filter our table based on user input. We&#8217;ll use
 <emphasis>Javascript</emphasis> at the client layer to perform the querying and filtering, and
-views with range queries at the server (flask) layer to return the results.</simpara>
-<simpara>Before we implement the Python-level search method, we need to put the following
-in the <literal>static/js/beersample.js</literal> file (if it&#8217;s not there already) to listen
-on searchbox changes and update the table with the resulting JSON (which will
-be returned from the search method):</simpara>
-<formalpara><title>static/js/beersample.js (snippet)</title><para>
-<programlisting language="javascript" linenumbering="unnumbered">$(document).ready(function() {
-
-    /**
-     * AJAX Beer Search Filter
-     */
-    $("#beer-search").keyup(function() {
-       var content = $("#beer-search").val();
-       if(content.length &gt;= 0) {
-           $.getJSON("/beers/search", {"value": content}, function(data) {
-               $("#beer-table tbody tr").remove();
-               for(var i=0;i&lt;data.length;i++) {
-                   var html = "&lt;tr&gt;";
-                   html += "&lt;td&gt;&lt;a href=\"/beers/show/"+data[i].id+"\"&gt;"+data[i].name+"&lt;/a&gt;&lt;/td&gt;";
-                   html += "&lt;td&gt;&lt;a href=\"/breweries/show/"+data[i].brewery+"\"&gt;To Brewery&lt;/a&gt;&lt;/td&gt;";
-                   html += "&lt;td&gt;";
-                   html += "&lt;a class=\"btn btn-small btn-warning\" href=\"/beers/edit/"+data[i].id+"\"&gt;Edit&lt;/a&gt;\n";
-                   html += "&lt;a class=\"btn btn-small btn-danger\" href=\"/beers/delete/"+data[i].id+"\"&gt;Delete&lt;/a&gt;";
-                   html += "&lt;/td&gt;";
-                   html += "&lt;/tr&gt;";
-                   $("#beer-table tbody").append(html);
-               }
-           });
-       }
-    });
-});</programlisting>
-</para></formalpara>
+views with range queries at the server (Flask) layer to return the results.</simpara>
+<simpara>The Python-level search method interacts with the client-side
+<literal>static/js/beersample.js</literal> which we&#8217;ve set up earlier.</simpara>
 <simpara>The code waits for keyup events on the search field, and if they happen, it
 issues an <emphasis>AJAX</emphasis> query on the search function within the app. The search
-handler computes the result (using views) and returns it as JSON. The
-JavaScript then clears the table, iterates over the results, and creates
-new rows.</simpara>
+handler (in <literal>beer.py</literal>) computes the result (using views) and returns it as
+JSON. The JavaScript then clears the table, iterates over the results, and
+creates new rows.</simpara>
 <simpara>The search handler looks like this:</simpara>
 <formalpara><title>beer.py (ajax search response)</title><para>
 <programlisting language="python" linenumbering="unnumbered">def return_search_json(ret):
@@ -883,7 +863,7 @@ This form of range indicates that all keys which start with the user input
 would also contain matches which are lexically "greater" than the user input;
 if we just provided the same value for the second and first elements, only
 items which matched the string exactly would be returned.</simpara>
-<simpara>The special <literal>STRING_RANGE_END</literal> is actually a <literal>u"\uEFF"</literal> UTF-8 character, which
+<simpara>The special <literal>STRING_RANGE_END</literal> is actually a <literal>u"\u0FFF"</literal> UTF-8 character, which
 for the view engine means "end here". You need to get used to it a bit, but it&#8217;s
 actually very neat and efficient.</simpara>
 <simpara>We re-use our <literal>BeerListRowProcessor</literal> class to filter the results here (as the
@@ -921,12 +901,12 @@ When deleting a brewery, ensure it has no beers dependent on it.
 </listitem>
 <listitem>
 <simpara>
-Provide a search where one can query beers beloning to a given brewery
+Provide a search where one can query beers beloning to a given brewery.
 </simpara>
 </listitem>
 <listitem>
 <simpara>
-Handle concurrent updates to a beer and/or brewery
+Handle concurrent updates to a beer and/or brewery.
 </simpara>
 </listitem>
 <listitem>

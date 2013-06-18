@@ -522,13 +522,15 @@ and freshness of data.
 This boolean parameter will also fetch low-level debugging information from the
 view engine.
 
-* `batchsize`
+* `streaming`
 +
-This numeric parameter indicates how many rows to fetch during a single request
-to the server. This can be handy if you wish to iterate over all the results,
-but not load the entire resultset in memory.
+This boolean parameter indicates whether the view results should be decoded
+in a _streaming_ manner. When enabled, the iterator will internally fetch
+chunks of the response as required.
 
-Here's a more extensive example
+As this is less efficient than fetching all results at once, it is disabled by
+default, but can be very useful if you have a large dataset as it prevents the
+entire view from being buffered in memory.
 
 [source,python]
 ------------------------------------------------------------

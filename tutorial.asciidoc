@@ -57,7 +57,7 @@ Create a design document called `brewery`. Add a view called `by_name`
 [source,javascript]
 ------------------
 function (doc, meta) {
-    if (doc.type == "brewery") {
+    if (doc.type && doc.type == "brewery") {
         emit(doc.name, null);
     }
 }
@@ -105,7 +105,6 @@ shell> find . -type d
 ./static
 ./static/js
 ./static/css
-./static/html
 ./templates
 ./templates/brewery
 ./templates/beer
@@ -131,6 +130,12 @@ has all the dependencies included. We'll now move on and configure the
 
 Preparing the Views
 ^^^^^^^^^^^^^^^^^^^
+
+[NOTE]
+If you've run the `design_setup.py` script in the quickstart, then you
+don't need to create the views listed below, as the script has already done
+this for you. Nevertheless you may wish to read the following section which
+explains what the views do.
 
 The beer-sample bucket comes with a small set of views already predefined,
 but to make our application function correctly we need some more.
@@ -230,7 +235,7 @@ import json
 from flask import Flask, request, redirect, abort, render_template
 
 from couchbase import Couchbase
-from couchbase.exceptions import KeyExistsError
+from couchbase.exceptions import KeyExistsError, NotFoundError
 from couchbase.views.iterator import RowProcessor
 from couchbase.views.params import UNSPEC, Query
 ----------------------------------
@@ -289,9 +294,9 @@ db = connect_db()
 You already know how to connect to a Couchbase cluster, we'll skip the
 explanation here.
 
-The second line sets the module-level `db` variable to be the `Connection` object.
-While in larger applications this is probably not a good idea, since this is a
-simple app, we can get away with it.
+The second statement sets the module-level `db` variable to be the
+`Connection` object. While in larger applications this is probably
+not a good idea, since this is a simple app, we can get away with it.
 
 
 The Welcome Page
@@ -305,10 +310,10 @@ is no Couchbase interaction involved, we just tell Flask to render the template.
 .beer.py (welcome page)
 ---------------
 @app.route('/')
+@app.route('/welcome')
 def welcome():
     return render_template('welcome.html')
 
-app.add_url_rule('/welcome', view_func=welcome)
 ---------------
 
 The `welcome.html` is actually a _Jinja_ template inside the
@@ -395,11 +400,22 @@ footer to them -- with only their `body` differing. Here we will show the
       </div>
     </div>
     <script src="/js/jquery.min.js"></script>
-    <script src="/js/bootstrap.min.js"></script>
     <script src="/js/beersample.js"></script>
   </body>
 </html>
 ----------------
+
+We're almost ready. We just need to tell Flask to start the webapp. At the bottom
+of the file, place this
+
+[source,python]
+.beer.py (initialization)
+--------------------------
+if __name__ == "__main__":
+    app.run(host='0.0.0.0')
+--------------------------
+
+This tells Flask to actually run your application.
 
 If you start your app now, you should be able to navigate to `localhost:5000`
 and see the welcome page. You'll get a 404 if you try to visit any links though -
@@ -448,7 +464,7 @@ class BeerListRowProcessor(object):
             ret.append(b)
             by_docids[b.id] = b
 
-        keys_to_fetch = [ x.id for x in ret ]
+        keys_to_fetch = [x.id for x in ret]
         docs = connection.get_multi(keys_to_fetch, quiet=True)
 
         for beer_id, doc in docs.items():
@@ -521,7 +537,7 @@ def beers():
     return render_template('beer/index.html', results=rows)
 ----------------
 
-We tell flask to route requests to `/beers` to this function.
+We tell Flask to route requests to `/beers` to this function.
 We create an instance of the `BeerListRowProcessor` function we just defined
 above.
 
@@ -613,9 +629,9 @@ def delete_object(otype, id):
 
 ----------------------------------
 
-Here we tell flask to route any URL which has as its second component the string
+Here we tell Flask to route any URL which has as its second component the string
 `delete` to this method. The paths in `<angle brackets>` are routing tokens
-which flask passes to the handler as arguments. This means that URLs such as
+which Flask passes to the handler as arguments. This means that URLs such as
 `/beers/delete/foobar`, `/foo/delete/whatever` etc. are all routed to here.
 
 When we get an ID, we try to delete it by using the `delete` method. We use a
@@ -626,6 +642,13 @@ does not exist, we return with an error message and a `404` status code.
 You can now access this page by going to `localhost:5000/beers/delete/nonexistent`
 and get a 404. Or you can delete a beer by clicking on one of the `Delete` buttons
 in the `/beers` page!
+
+[WARNING]
+Because your browser caches content, fetching the beer again may still display
+the page (instead of a 404). This is not an error in the application, but rather
+a feature of the browser (you can also instruct Flask to insert the necessary
+caching HTTP headers too). To alleviate this, ensure you actually "refresh" the
+page using your browser (e.g. _Ctrl+R_ or _F5_ etc.).
 
 Displaying Beers
 ^^^^^^^^^^^^^^^^
@@ -672,8 +695,7 @@ we'll show here:
 {% extends "layout.html" %}
 {% block body %}
 
-{% set display = beer.doc %}
-{% set brewery_id = display['brewery_id'] %}
+{% set brewery_id = beer.doc['brewery_id'] %}
 
 <h3>Show Details for Beer "{{beer.name}}"</h3>
 <table class="table table-striped">
@@ -682,7 +704,7 @@ we'll show here:
             <td><strong>brewery_id</strong></td>
             <td><a href="/breweries/show/{{brewery_id}}">{{brewery_id}}</a></td>
         </tr>
-        {% for k, v in display.items() if not k == "brewery_id" %}
+        {% for k, v in beer.doc.items() if k != "brewery_id" %}
         <tr>
             <td><strong>{{k}}</strong></td>
             <td>{{v}}</td>
@@ -699,10 +721,7 @@ we'll show here:
 {% endblock %}
 -----------------------
 
-Here we make the `display` variable in a special `{% set %}` directive.
-This makes dealing with the rest of the code simpler.
-
-The next thing we do is extract the `brewery_id`, and create a special
+The first thing we do is extract the `brewery_id`, and create a special
 entry with a link pointing to the page to display the actual brewery.
 
 The next thing we do is iterate over the rest of the fields (omitting the
@@ -737,7 +756,7 @@ def normalize_beer_fields(form):
 
     return doc, None
 
-@app.route('/beers/edit/<beer>', methods=['GET'])
+@app.route('/beers/edit/<beer>')
 def edit_beer_display(beer):
     bdoc = db.get(beer, quiet=True)
     if not bdoc.success:
@@ -745,7 +764,6 @@ def edit_beer_display(beer):
 
     return render_template('beer/edit.html',
                            beer=Beer(beer, bdoc.value['name'], bdoc.value),
-                           posturl='/beers/edit/' + beer,
                            is_create=False)
 
 
@@ -913,49 +931,16 @@ Searching Beers
 In the beer listing page above, you may have noticed a search box at the top.
 We can use it to dynamically filter our table based on user input. We'll use
 _Javascript_ at the client layer to perform the querying and filtering, and
-views with range queries at the server (flask) layer to return the results.
+views with range queries at the server (Flask) layer to return the results.
 
-Before we implement the Python-level search method, we need to put the following
-in the `static/js/beersample.js` file (if it's not there already) to listen
-on searchbox changes and update the table with the resulting JSON (which will
-be returned from the search method):
-
-[source,javascript]
-.static/js/beersample.js (snippet)
------------------------------------
-$(document).ready(function() {
-
-    /**
-     * AJAX Beer Search Filter
-     */
-    $("#beer-search").keyup(function() {
-       var content = $("#beer-search").val();
-       if(content.length >= 0) {
-           $.getJSON("/beers/search", {"value": content}, function(data) {
-               $("#beer-table tbody tr").remove();
-               for(var i=0;i<data.length;i++) {
-                   var html = "<tr>";
-                   html += "<td><a href=\"/beers/show/"+data[i].id+"\">"+data[i].name+"</a></td>";
-                   html += "<td><a href=\"/breweries/show/"+data[i].brewery+"\">To Brewery</a></td>";
-                   html += "<td>";
-                   html += "<a class=\"btn btn-small btn-warning\" href=\"/beers/edit/"+data[i].id+"\">Edit</a>\n";
-                   html += "<a class=\"btn btn-small btn-danger\" href=\"/beers/delete/"+data[i].id+"\">Delete</a>";
-                   html += "</td>";
-                   html += "</tr>";
-                   $("#beer-table tbody").append(html);
-               }
-           });
-       }
-    });
-});
-
---------------------------------
+The Python-level search method interacts with the client-side
+`static/js/beersample.js` which we've set up earlier.
 
 The code waits for keyup events on the search field, and if they happen, it
 issues an _AJAX_ query on the search function within the app. The search
-handler computes the result (using views) and returns it as JSON. The
-JavaScript then clears the table, iterates over the results, and creates
-new rows.
+handler (in `beer.py`) computes the result (using views) and returns it as
+JSON. The JavaScript then clears the table, iterates over the results, and
+creates new rows.
 
 The search handler looks like this:
 
@@ -1002,7 +987,7 @@ would also contain matches which are lexically "greater" than the user input;
 if we just provided the same value for the second and first elements, only
 items which matched the string exactly would be returned.
 
-The special `STRING_RANGE_END` is actually a `u"\uEFF"` UTF-8 character, which
+The special `STRING_RANGE_END` is actually a `u"\u0FFF"` UTF-8 character, which
 for the view engine means "end here". You need to get used to it a bit, but it's
 actually very neat and efficient.
 
@@ -1046,7 +1031,7 @@ There are some things still not implemented in the example; here is some food
 for thought.
 
 * When deleting a brewery, ensure it has no beers dependent on it.
-* Provide a search where one can query beers beloning to a given brewery
-* Handle concurrent updates to a beer and/or brewery
+* Provide a search where one can query beers beloning to a given brewery.
+* Handle concurrent updates to a beer and/or brewery.
 * Implement a 'like' feature, where one can like a beer or a brewery;
 likewise, they can unlike one as well!

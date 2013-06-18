@@ -649,9 +649,9 @@ not be used on the `Query` object.
 +
 Fetch corresponding documents along with each row
 
-* `batchsize = 30`
+* `streaming = True`
 +
-Maximum amount of rows to fetch at once
+Fetch results incrementally. Don't buffer all results in memory at once.
 
 
 Pagination
@@ -659,15 +659,10 @@ Pagination
 
 Often, view results can be large. By default the client reads all the results
 into memory and then returns an iterator over that result set. You can change
-this behavior by specifying the `batchsize` option to the `query` method. When
-used, this parameter indicates how many rows to fetch-at-a-time.
+this behavior by specifying the `streaming` option to the `query` method. When
+used, results will be fetched incrementally.
 
-Under the hood, the iterator object executes multiple queries returning at most
-`batchsize` rows each.
-
-Using `batchsize` does not have any impact on how the rows are returned and
-simply control how many internal requests are made to the server to fetch
-the results.
+Using `streaming` does not have any impact on how the rows are returned.
 
 
 Design Document Management

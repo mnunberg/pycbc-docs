@@ -544,9 +544,9 @@ not be used on the <literal>Query</literal> object.</simpara>
 </listitem>
 <listitem>
 <simpara>
-<literal>batchsize = 30</literal>
+<literal>streaming = True</literal>
 </simpara>
-<simpara>Maximum amount of rows to fetch at once</simpara>
+<simpara>Fetch results incrementally. Don&#8217;t buffer all results in memory at once.</simpara>
 </listitem>
 </itemizedlist>
 </section>
@@ -555,13 +555,9 @@ not be used on the <literal>Query</literal> object.</simpara>
 <title>Pagination</title>
 <simpara>Often, view results can be large. By default the client reads all the results
 into memory and then returns an iterator over that result set. You can change
-this behavior by specifying the <literal>batchsize</literal> option to the <literal>query</literal> method. When
-used, this parameter indicates how many rows to fetch-at-a-time.</simpara>
-<simpara>Under the hood, the iterator object executes multiple queries returning at most
-<literal>batchsize</literal> rows each.</simpara>
-<simpara>Using <literal>batchsize</literal> does not have any impact on how the rows are returned and
-simply control how many internal requests are made to the server to fetch
-the results.</simpara>
+this behavior by specifying the <literal>streaming</literal> option to the <literal>query</literal> method. When
+used, results will be fetched incrementally.</simpara>
+<simpara>Using <literal>streaming</literal> does not have any impact on how the rows are returned.</simpara>
 </section>
 </section>
 <section id="_design_document_management">
