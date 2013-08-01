@@ -132,6 +132,9 @@ the conversion type to be used. The default is `couchbase.FMT_JSON`, but you
 may also use `couchbase.FMT_BYTES`, `couchbase.FMT_UTF8`, or
 `couchbase.FMT_PICKLE` instead. If none of these are sufficient, you may even
 write your own custom `Transcoder` object to handle conversion on your own.
+
+Starting from version 1.1.0, you may also use the `couchbase.FMT_AUTO` flag
+which will guess the suitable format based on the Python datatype being passed.
 +
 
 * *Storing Data*

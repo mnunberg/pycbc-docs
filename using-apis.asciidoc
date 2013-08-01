@@ -133,7 +133,10 @@ If they fail, they will raise an exception (and are not affected by the
 These methods can accept a `format` property (which indicates the format
 in which the value will be stored on the server) as well as a `ttl`
 property which indicates the lifetime of the value; after the `ttl` is
-reached, the value is deleted from the server.
+reached, the value is deleted from the server. Starting from version 1.1.0,
+these methods can also accept `persist_to` and `replicate_to` arguments,
+specifying the synchronization of application code with replication and
+persistence events. See the API documentation for more details.
 
 * `client.set(key, value, **kwargs)`
 +

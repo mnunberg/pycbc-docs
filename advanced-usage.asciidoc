@@ -143,6 +143,14 @@ value (using `get`). If the flag is equal to `FMT_JSON` then it attempts to
 decode it as JSON; if the flag is equal to `FMT_PICKLE` then it attempts to
 decode it as Pickle, and so on.
 
+You may pass the `FMT_AUTO` flag to `set`, in which case it will guess the
+suitable format for your data based on the Python datatype being used.
+
+Additionally, you can pass the `no_format` option to `get` to suppress automatic
+conversion of the value to a native Python type (the `bytes` type will be used
+instead). This may be useful when conversion is not needed, or if other issues
+arise when decoding a format (for example, a Pickle version mismatch).
+
 
 Custom `Transcoder` Objects
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -234,6 +242,98 @@ c.set("a_dict", {"foo":"bar"})
 c.data_passthrough = True
 c.get("a_dict").value == b'{"foo":"bar"}'
 ---------------
+
+Item API
+~~~~~~~~
+
+The `Item` API introduced in version 1.1 introduces a more streamlined way to
+deal with Couchbase documents and key-value entries.
+
+The `Item` API represents a persistent object in your application which may be
+passed by your application to any of the SDK `_multi` APIs. When this object is
+passed, the result of the operation is stored within the `Item` object itself,
+rather than creating a new result object.
+
+This allows developers to avoid some common boilerplate methods such as
+converting a `Result` object to their internal application structure. In fact,
+the `Item` object itself is a subclass of `ValueResult`
+
+All methods accepting `Items` should be passed a collection of items. These
+collections must be the special classes of either an `ItemOptionDict` or an
+`ItemSequence`. The former can be used to specify additional arguments for
+each individual item (such as `CAS`, `format`, and the like), while the latter
+may be used if no specific options are required.
+
+[source,python]
+----------------
+#!/usr/bin/python
+from pprint import pprint
+
+from couchbase import Couchbase, FMT_UTF8
+from couchbase.items import Item, ItemSequence, ItemOptionDict
+
+
+# The Item API allows subclassing.
+class MyItem(Item):
+    def print_value(self):
+        pprint(self.value, indent=4)
+
+cb = Couchbase.connect(bucket='default')
+
+# Create blank item
+itm = MyItem()
+
+# Must set a key before we do anything with it
+itm.key = "simple_key"
+
+# We'll first store it
+itm.value = "Hello World"
+
+# Now, we need a sequence for the item.
+itmcoll = ItemSequence([itm])
+cb.set_multi(itmcoll, format=FMT_UTF8)
+
+itm.print_value()
+
+# Let's append some data to it. We use the special 'append_items' method
+# However, append requires a 'fragment' option for each item, so we need
+# to make 'itmcoll' an ItemOptionsDict
+
+itmcoll = ItemOptionDict()
+itmcoll.add(itm, fragment=" ..again")
+cb.append_items(itmcoll, format=FMT_UTF8)
+itm.print_value()
+
+# Let's get the key using a normal 'get' this time
+print cb.get(itm.key).value
+----------------------------------
+
+Outputs
+..............
+'Hello World'
+'Hello World ..again'
+Hello World .. again
+..............
+
+
+Persistence/Durability Requirements
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Persistence requirements are provided to allow an application developer to
+ensure that a given mutation operation has been performed and
+propagated to more than one node in the cluster. By default, operations are
+considered successful if they are stored in the RAM of a single node. Using
+the `persist_to` and `replicate_to` arguments in the `set` family of methods
+you may specify stricted requirements, for example to replicate to at least
+two nodes, and to have it persisted on at least one node's disk.
+
+Note that Couchbase will always _eventually_ store each item on all of its
+associated replicas, in both disk and memory. The persistence requirements
+are there as a means for the application developer to synchronize his/her
+code so that the application does not continue until those requirements are
+met.
+
+See the API reference for more information on how to use these parameters.
 
 Logging and Debugging
 ~~~~~~~~~~~~~~~~~~~~~
@@ -485,3 +585,12 @@ reproduce, if possible) to your desired support venue.
 It is also possible to debug a crash using _Valgrind_, but the process is
 significantly more involved and requires a slightly modified build of
 Python. See the _Contibuting_ section for more details.
+
+
+[WARNING]
+It is possible to avoid some of the `assert` statements by setting an
+environment variable. This should only be used when the full cause of the
+issue is known. Note that even when the cause is known, bypassing an
+`assert` statement may still corrupt data.
+To enable this feature, you can set `PYCBC_ASSERT_CONTINUE` to `1` in your
+environment.

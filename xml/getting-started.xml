@@ -131,6 +131,11 @@ may also use <literal>couchbase.FMT_BYTES</literal>, <literal>couchbase.FMT_UTF8
 <literal>couchbase.FMT_PICKLE</literal> instead. If none of these are sufficient, you may even
 write your own custom <literal>Transcoder</literal> object to handle conversion on your own.</simpara>
 </listitem>
+</itemizedlist>
+<simpara>Starting from version 1.1.0, you may also use the <literal>couchbase.FMT_AUTO</literal> flag
+which will guess the suitable format based on the Python datatype being passed.</simpara>
+<simpara>+</simpara>
+<itemizedlist>
 <listitem>
 <simpara>
 <emphasis role="strong">Storing Data</emphasis>
