@@ -335,6 +335,40 @@ met.
 
 See the API reference for more information on how to use these parameters.
 
+Replicas and Data Availability
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Sometimes it may be useful to retrieve the value for an item, even if the value
+may not be the most recent version present on the server. Such a scenario may
+happen for example when trying to retrieve a "tag cloud" entry or similar, where
+the presence of any data is more important than no data at all.
+
+Data outages can happen for brief periods of time in between the phyiscal
+disruption of a node (i.e. the node loses immediate network connectivity)
+and the period of time the cluster waits for auto-failover (if it is enabled).
+
+If your cluster is configured with support for one or more replicas, then any
+item stored will typically be available on a replica, even if the original
+vBucket master is unavailable. However, there is a slight chance that the master
+stored a *newer* version of the item immediately before it went down and before
+it had a chance to replicate the item to the replicas.
+
+To retrieve an item from a replica, simply use the `replica` boolean parameter
+in `get` or `get_multi`. Typically this is done in a `try`-`except` loop, where
+the `try` block attempts to fetch a key through normal means, and the `except`
+block attempts to use the replica:
+
+[source,python]
+---------------
+try:
+    rv = cb.get(key)
+except CouchbaseError:
+    rv = cb.get(key, replica=True)
+---------------
+
+There is also the `rget` method which is able to get an item from a specific
+replica. See the API documentation for more details
+
 Logging and Debugging
 ~~~~~~~~~~~~~~~~~~~~~
 

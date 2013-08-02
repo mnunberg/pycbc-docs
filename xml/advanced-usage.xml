@@ -262,6 +262,31 @@ code so that the application does not continue until those requirements are
 met.</simpara>
 <simpara>See the API reference for more information on how to use these parameters.</simpara>
 </section>
+<section id="_replicas_and_data_availability">
+<title>Replicas and Data Availability</title>
+<simpara>Sometimes it may be useful to retrieve the value for an item, even if the value
+may not be the most recent version present on the server. Such a scenario may
+happen for example when trying to retrieve a "tag cloud" entry or similar, where
+the presence of any data is more important than no data at all.</simpara>
+<simpara>Data outages can happen for brief periods of time in between the phyiscal
+disruption of a node (i.e. the node loses immediate network connectivity)
+and the period of time the cluster waits for auto-failover (if it is enabled).</simpara>
+<simpara>If your cluster is configured with support for one or more replicas, then any
+item stored will typically be available on a replica, even if the original
+vBucket master is unavailable. However, there is a slight chance that the master
+stored a <emphasis role="strong">newer</emphasis> version of the item immediately before it went down and before
+it had a chance to replicate the item to the replicas.</simpara>
+<simpara>To retrieve an item from a replica, simply use the <literal>replica</literal> boolean parameter
+in <literal>get</literal> or <literal>get_multi</literal>. Typically this is done in a <literal>try</literal>-<literal>except</literal> loop, where
+the <literal>try</literal> block attempts to fetch a key through normal means, and the <literal>except</literal>
+block attempts to use the replica:</simpara>
+<programlisting language="python" linenumbering="unnumbered">try:
+    rv = cb.get(key)
+except CouchbaseError:
+    rv = cb.get(key, replica=True)</programlisting>
+<simpara>There is also the <literal>rget</literal> method which is able to get an item from a specific
+replica. See the API documentation for more details</simpara>
+</section>
 <section id="_logging_and_debugging">
 <title>Logging and Debugging</title>
 <simpara>This section will cover how to uncover bugs in your application (or in the SDK
