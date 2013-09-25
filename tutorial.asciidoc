@@ -201,7 +201,9 @@ function (doc, meta) {
 
 The final step that you need to do is to push the design documents in
 production. While the design documents are in development, the index
-is only applied on the local node. Since we want to have the index on the whole
+is only applied on a subset of items in the bucket which is useful
+for development mode as it makes indexing quicker.
+Since we want to have the index on the whole
 dataset, click the _Publish_ button on both design documents (and accept any
 info popup that warns you from overriding the old one).
 
